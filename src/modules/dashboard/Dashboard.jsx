@@ -45,6 +45,9 @@ function useDashboardSummary(userId) {
         journalRes,
         oneOnOneRes,
         thoughtRes,
+        readingRes,
+        finishedRes,
+        lastWorkoutRes,
       ] = await Promise.all([
         supabase.from('habits').select('id').eq('user_id', userId).is('routine_type', null),
         supabase.from('habit_logs').select('habit_id').eq('user_id', userId).eq('completed_date', today),
@@ -54,6 +57,12 @@ function useDashboardSummary(userId) {
         supabase.from('journal_entries').select('id').eq('user_id', userId).eq('entry_date', today).maybeSingle(),
         supabase.from('one_on_one_items').select('id').eq('user_id', userId).eq('status', 'pending'),
         supabase.from('notes').select('content, created_at').eq('user_id', userId).eq('category', 'thought').order('created_at', { ascending: false }).limit(1),
+        // Books: currently reading
+        supabase.from('books').select('title').eq('user_id', userId).eq('status', 'reading').order('created_at', { ascending: false }).limit(1),
+        // Books: finished count
+        supabase.from('books').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'finished'),
+        // Workouts: last session
+        supabase.from('workouts').select('workout_date, workout_type').eq('user_id', userId).order('workout_date', { ascending: false }).limit(1),
       ])
 
       // Habits
@@ -76,9 +85,16 @@ function useDashboardSummary(userId) {
         )
       }).length
 
-      const hasJournalToday   = !journalRes.error && journalRes.data !== null
-      const pendingOneOnOne   = oneOnOneRes.data?.length ?? 0
-      const latestThought     = thoughtRes.data?.[0]?.content ?? null
+      const hasJournalToday = !journalRes.error && journalRes.data !== null
+      const pendingOneOnOne = oneOnOneRes.data?.length ?? 0
+      const latestThought   = thoughtRes.data?.[0]?.content ?? null
+
+      // Books
+      const currentlyReading  = readingRes.data?.[0]?.title ?? null
+      const booksFinished     = finishedRes.count ?? 0
+
+      // Workouts
+      const lastWorkout = lastWorkoutRes.data?.[0] ?? null
 
       setSummary({
         habitTotal, habitCompleted,
@@ -87,6 +103,9 @@ function useDashboardSummary(userId) {
         hasJournalToday,
         pendingOneOnOne,
         latestThought,
+        currentlyReading,
+        booksFinished,
+        lastWorkout,
       })
     }
 
@@ -215,6 +234,44 @@ export default function Dashboard({ session }) {
               accent="purple"
             />
           )}
+
+          {/* Currently reading */}
+          {s.currentlyReading && (
+            <StatCard
+              to="/books"
+              label="Currently reading"
+              value="📖"
+              sub={s.currentlyReading}
+              accent="indigo"
+            />
+          )}
+
+          {/* Books finished */}
+          {s.booksFinished > 0 && (
+            <StatCard
+              to="/books"
+              label="Books finished"
+              value={s.booksFinished}
+              sub="total"
+              accent="indigo"
+            />
+          )}
+
+          {/* Last workout */}
+          {s.lastWorkout && (
+            <StatCard
+              to="/workouts"
+              label="Last workout"
+              value={s.lastWorkout.workout_type === 'tonal' ? '💪' : s.lastWorkout.workout_type === 'swedish_ladder' ? '🪜' : '🏋️'}
+              sub={`${s.lastWorkout.workout_date} · ${
+                s.lastWorkout.workout_type === 'tonal' ? 'Tonal'
+                : s.lastWorkout.workout_type === 'swedish_ladder' ? 'Swedish Ladder'
+                : s.lastWorkout.workout_type === 'cardio' ? 'Cardio'
+                : 'Other'
+              }`}
+              accent="amber"
+            />
+          )}
         </div>
       )}
 
@@ -237,6 +294,20 @@ export default function Dashboard({ session }) {
               blurb = `${s.pendingOneOnOne} pending 1-on-1 question${s.pendingOneOnOne !== 1 ? 's' : ''}`
             else if (s.latestThought)
               blurb = `"${s.latestThought.slice(0, 60)}${s.latestThought.length > 60 ? '…' : ''}"`
+          }
+          if (path === '/books' && s !== null) {
+            if (s.currentlyReading)
+              blurb = `Reading: ${s.currentlyReading.slice(0, 50)}${s.currentlyReading.length > 50 ? '…' : ''}`
+            else if (s.booksFinished > 0)
+              blurb = `${s.booksFinished} book${s.booksFinished !== 1 ? 's' : ''} finished`
+            else
+              blurb = 'Add your first book →'
+          }
+          if (path === '/workouts' && s !== null) {
+            if (s.lastWorkout)
+              blurb = `Last session: ${s.lastWorkout.workout_date}`
+            else
+              blurb = 'Log your first workout →'
           }
 
           return (
