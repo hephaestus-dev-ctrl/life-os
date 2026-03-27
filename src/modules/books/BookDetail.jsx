@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeftIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline'
 
 const NOTE_TYPES = [
   { key: 'highlight',  label: 'Highlights',  color: 'text-amber-300',  bg: 'bg-amber-950/40 border-amber-800/40' },
@@ -15,16 +15,13 @@ const STATUS_LABELS = {
 
 const MOVE_OPTIONS = {
   want_to_read: [
-    { status: 'reading',   label: 'Start Reading' },
-    { status: 'finished',  label: 'Mark Finished' },
+    { status: 'reading', label: 'Start Reading' },
   ],
   reading: [
     { status: 'want_to_read', label: 'Move to Wishlist' },
     { status: 'finished',     label: 'Mark Finished' },
   ],
-  finished: [
-    { status: 'reading', label: 'Re-reading' },
-  ],
+  finished: [],
 }
 
 function StarRating({ rating, onChange }) {
@@ -50,34 +47,145 @@ function StarRating({ rating, onChange }) {
   )
 }
 
+function FinishedModal({ onConfirm, onCancel }) {
+  const [rating, setRating] = useState(null)
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-xs shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-gray-100 mb-1">Mark as Finished</h3>
+        <p className="text-sm text-gray-500 mb-4">How would you rate this book?</p>
+        <div className="flex justify-center mb-5">
+          <StarRating rating={rating} onChange={setRating} />
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-lg border border-gray-700 text-gray-400 text-sm transition-colors hover:text-gray-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(rating)}
+            className="flex-1 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-medium transition-colors"
+          >
+            Mark Finished
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AnnotationModal({ noteType, onSave, onClose }) {
+  const [content,  setContent]  = useState('')
+  const [location, setLocation] = useState('')
+  const [saving,   setSaving]   = useState(false)
+
+  const placeholder = noteType === 'highlight'
+    ? 'Paste or type the highlighted passage…'
+    : noteType === 'note'
+    ? 'Write your note…'
+    : 'Write your discussion thought or question…'
+
+  const handleSave = async () => {
+    const c = content.trim()
+    if (!c) return
+    setSaving(true)
+    const finalContent = location.trim() ? `${location.trim()} — ${c}` : c
+    await onSave(finalContent)
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-gray-100 mb-4">
+          Add {noteType === 'highlight' ? 'Highlight' : noteType === 'note' ? 'Note' : 'Discussion'}
+        </h3>
+        <div className="space-y-3">
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder={placeholder}
+            rows={6}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-indigo-500 resize-none"
+            autoFocus
+          />
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="e.g. p. 47 or Chapter 3"
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button
+            onClick={handleSave}
+            disabled={!content.trim() || saving}
+            className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-lg border border-gray-700 text-gray-400 text-sm transition-colors hover:text-gray-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BookDetail({ book, notes, onBack, onUpdate, onDelete, onAddNote, onDeleteNote }) {
-  const [noteTab, setNoteTab] = useState('highlight')
-  const [noteInput, setNoteInput] = useState('')
-  const [review, setReview] = useState(book.review ?? '')
-  const [editingReview, setEditingReview] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [noteTab,             setNoteTab]             = useState('highlight')
+  const [review,              setReview]              = useState(book.review ?? '')
+  const [editingReview,       setEditingReview]       = useState(false)
+  const [showAnnotationModal, setShowAnnotationModal] = useState(false)
+  const [showFinishedModal,   setShowFinishedModal]   = useState(false)
 
   const filteredNotes = notes.filter((n) => n.note_type === noteTab)
-  const moveOptions = MOVE_OPTIONS[book.status] ?? []
+  const moveOptions   = MOVE_OPTIONS[book.status] ?? []
 
   const handleMove = (status) => {
+    if (status === 'finished') {
+      setShowFinishedModal(true)
+      return
+    }
     const updates = { status }
     if (status === 'reading' && !book.started_date) {
       updates.started_date = new Date().toISOString().slice(0, 10)
     }
-    if (status === 'finished' && !book.finished_date) {
-      updates.finished_date = new Date().toISOString().slice(0, 10)
-    }
     onUpdate(book.id, updates)
   }
 
-  const handleAddNote = async () => {
-    const content = noteInput.trim()
-    if (!content) return
-    setSaving(true)
+  const handleConfirmFinished = (rating) => {
+    const updates = { status: 'finished' }
+    if (!book.finished_date) {
+      updates.finished_date = new Date().toISOString().slice(0, 10)
+    }
+    if (rating !== null) updates.rating = rating
+    onUpdate(book.id, updates)
+    setShowFinishedModal(false)
+  }
+
+  const handleAddNote = async (content) => {
     await onAddNote({ book_id: book.id, content, note_type: noteTab })
-    setNoteInput('')
-    setSaving(false)
   }
 
   const handleSaveReview = async () => {
@@ -226,7 +334,16 @@ export default function BookDetail({ book, notes, onBack, onUpdate, onDelete, on
 
           {/* Annotations */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <h2 className="font-semibold text-gray-100 mb-4">Annotations</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-gray-100">Annotations</h2>
+              <button
+                onClick={() => setShowAnnotationModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                Add
+              </button>
+            </div>
 
             {/* Note type tabs */}
             <div className="flex gap-1 bg-gray-800/60 rounded-lg p-1 mb-4">
@@ -246,31 +363,6 @@ export default function BookDetail({ book, notes, onBack, onUpdate, onDelete, on
                   </span>
                 </button>
               ))}
-            </div>
-
-            {/* Add note input */}
-            <div className="flex gap-2 mb-4">
-              <input
-                type="text"
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAddNote() }}
-                placeholder={
-                  noteTab === 'highlight'
-                    ? 'Add a highlighted passage…'
-                    : noteTab === 'note'
-                    ? 'Add a note…'
-                    : 'Add a discussion thought…'
-                }
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
-              />
-              <button
-                onClick={handleAddNote}
-                disabled={!noteInput.trim() || saving}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors"
-              >
-                Add
-              </button>
             </div>
 
             {/* Notes list */}
@@ -302,6 +394,21 @@ export default function BookDetail({ book, notes, onBack, onUpdate, onDelete, on
           </div>
         </div>
       </div>
+
+      {showAnnotationModal && (
+        <AnnotationModal
+          noteType={noteTab}
+          onSave={handleAddNote}
+          onClose={() => setShowAnnotationModal(false)}
+        />
+      )}
+
+      {showFinishedModal && (
+        <FinishedModal
+          onConfirm={handleConfirmFinished}
+          onCancel={() => setShowFinishedModal(false)}
+        />
+      )}
     </div>
   )
 }

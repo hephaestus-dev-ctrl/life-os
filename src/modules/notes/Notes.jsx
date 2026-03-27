@@ -56,6 +56,62 @@ function QuickThought({ onAdd }) {
   )
 }
 
+// Modal for adding a 1-on-1 question
+function AddQuestionModal({ onAdd, onClose }) {
+  const [question, setQuestion] = useState('')
+  const [context,  setContext]  = useState('')
+  const [saving,   setSaving]   = useState(false)
+
+  const handleSave = async () => {
+    const q = question.trim()
+    if (!q) return
+    setSaving(true)
+    await onAdd({ question: q, context: context.trim() })
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+        <h2 className="text-lg font-semibold text-gray-100 mb-5">Add Question</h2>
+        <div className="space-y-4">
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Question or topic to raise in your 1-on-1…"
+            rows={3}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-600 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
+            autoFocus
+          />
+          <textarea
+            value={context}
+            onChange={(e) => setContext(e.target.value)}
+            placeholder="Context or background (optional)…"
+            rows={3}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-600 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
+          />
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={handleSave}
+            disabled={!question.trim() || saving}
+            className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {saving ? 'Adding…' : 'Add Question'}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm font-medium rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Modal for adding a full note (with title, category)
 function AddNoteModal({ onAdd, onClose }) {
   const [title,    setTitle]    = useState('')
@@ -142,6 +198,7 @@ export default function Notes() {
   const [tab,      setTab]      = useState('all')
   const [search,   setSearch]   = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showAddQuestionModal, setShowAddQuestionModal] = useState(false)
 
   const pendingOneOnOne = oneOnOneItems.filter((i) => i.status === 'pending').length
 
@@ -186,7 +243,15 @@ export default function Notes() {
             )}
           </p>
         </div>
-        {tab !== '1on1' && (
+        {tab === '1on1' ? (
+          <button
+            onClick={() => setShowAddQuestionModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Add Question
+          </button>
+        ) : (
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
@@ -223,7 +288,6 @@ export default function Notes() {
       {tab === '1on1' ? (
         <OneOnOneSection
           items={oneOnOneItems}
-          onAdd={addOneOnOne}
           onToggle={toggleOneOnOne}
           onDelete={deleteOneOnOne}
         />
@@ -288,6 +352,10 @@ export default function Notes() {
 
       {showModal && (
         <AddNoteModal onAdd={addNote} onClose={() => setShowModal(false)} />
+      )}
+
+      {showAddQuestionModal && (
+        <AddQuestionModal onAdd={addOneOnOne} onClose={() => setShowAddQuestionModal(false)} />
       )}
     </div>
   )

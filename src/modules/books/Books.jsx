@@ -57,7 +57,7 @@ export default function Books() {
     )
   }
 
-  const handleMove = (book, status) => {
+  const handleMove = (book, status, rating = null) => {
     const updates = { status }
     if (status === 'reading' && !book.started_date) {
       updates.started_date = new Date().toISOString().slice(0, 10)
@@ -65,6 +65,7 @@ export default function Books() {
     if (status === 'finished' && !book.finished_date) {
       updates.finished_date = new Date().toISOString().slice(0, 10)
     }
+    if (rating !== null) updates.rating = rating
     updateBook(book.id, updates)
   }
 
@@ -192,7 +193,7 @@ export default function Books() {
                   key={book.id}
                   book={book}
                   onClick={() => setSelectedBook(book.id)}
-                  onMove={(status) => handleMove(book, status)}
+                  onMove={(status, rating) => handleMove(book, status, rating)}
                   onDelete={() => deleteBook(book.id)}
                 />
               ))}
