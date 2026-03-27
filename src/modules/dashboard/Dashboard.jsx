@@ -42,12 +42,18 @@ function useDashboardSummary(userId) {
         habitsRes, habitLogsRes,
         todosRes,
         choresRes, choreLogsRes,
+        journalRes,
+        oneOnOneRes,
+        thoughtRes,
       ] = await Promise.all([
         supabase.from('habits').select('id').eq('user_id', userId).is('routine_type', null),
         supabase.from('habit_logs').select('habit_id').eq('user_id', userId).eq('completed_date', today),
         supabase.from('todos').select('id, due_date, status').eq('user_id', userId).eq('status', 'open'),
         supabase.from('chores').select('id, cadence, assigned_day').eq('user_id', userId),
         supabase.from('chore_logs').select('chore_id, completed_date').eq('user_id', userId),
+        supabase.from('journal_entries').select('id').eq('user_id', userId).eq('entry_date', today).maybeSingle(),
+        supabase.from('one_on_one_items').select('id').eq('user_id', userId).eq('status', 'pending'),
+        supabase.from('notes').select('content, created_at').eq('user_id', userId).eq('category', 'thought').order('created_at', { ascending: false }).limit(1),
       ])
 
       // Habits
@@ -70,7 +76,18 @@ function useDashboardSummary(userId) {
         )
       }).length
 
-      setSummary({ habitTotal, habitCompleted, todosDueToday, todosOverdue, choresIncomplete })
+      const hasJournalToday   = !journalRes.error && journalRes.data !== null
+      const pendingOneOnOne   = oneOnOneRes.data?.length ?? 0
+      const latestThought     = thoughtRes.data?.[0]?.content ?? null
+
+      setSummary({
+        habitTotal, habitCompleted,
+        todosDueToday, todosOverdue,
+        choresIncomplete,
+        hasJournalToday,
+        pendingOneOnOne,
+        latestThought,
+      })
     }
 
     load()
@@ -176,6 +193,28 @@ export default function Dashboard({ session }) {
               accent="purple"
             />
           )}
+
+          {/* Journal today */}
+          {!s.hasJournalToday && (
+            <StatCard
+              to="/journal"
+              label="Journal"
+              value="—"
+              sub="No entry yet today"
+              accent="amber"
+            />
+          )}
+
+          {/* Pending 1-on-1 questions */}
+          {s.pendingOneOnOne > 0 && (
+            <StatCard
+              to="/notes"
+              label="1-on-1 queue"
+              value={s.pendingOneOnOne}
+              sub={`pending question${s.pendingOneOnOne !== 1 ? 's' : ''}`}
+              accent="purple"
+            />
+          )}
         </div>
       )}
 
@@ -191,6 +230,14 @@ export default function Dashboard({ session }) {
               : `${s.todosDueToday} due today`
           if (path === '/chores' && s?.choresIncomplete > 0)
             blurb = `${s.choresIncomplete} pending this period`
+          if (path === '/journal' && s !== null)
+            blurb = s.hasJournalToday ? "Today's entry saved ✓" : "No entry yet today — write now"
+          if (path === '/notes' && s !== null) {
+            if (s.pendingOneOnOne > 0)
+              blurb = `${s.pendingOneOnOne} pending 1-on-1 question${s.pendingOneOnOne !== 1 ? 's' : ''}`
+            else if (s.latestThought)
+              blurb = `"${s.latestThought.slice(0, 60)}${s.latestThought.length > 60 ? '…' : ''}"`
+          }
 
           return (
             <Link
