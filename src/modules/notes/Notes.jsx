@@ -143,14 +143,6 @@ export default function Notes() {
   const [search,   setSearch]   = useState('')
   const [showModal, setShowModal] = useState(false)
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-48">
-        <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
   const pendingOneOnOne = oneOnOneItems.filter((i) => i.status === 'pending').length
 
   // Filter notes by tab
@@ -172,6 +164,14 @@ export default function Notes() {
         n.tags?.some((t) => t.toLowerCase().includes(q))
     )
   }, [tabNotes, search])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-2xl">
