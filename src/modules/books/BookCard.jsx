@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { ChevronRightIcon, TrashIcon } from '@heroicons/react/24/outline'
 
 const STATUS_BADGE = {
+  library:      { label: 'My Library',   cls: 'text-teal-300 bg-teal-950' },
   want_to_read: { label: 'Want to Read', cls: 'text-gray-400 bg-gray-800' },
-  reading:      { label: 'Reading',       cls: 'text-blue-300 bg-blue-950' },
-  finished:     { label: 'Finished',      cls: 'text-emerald-300 bg-emerald-950' },
+  reading:      { label: 'Reading',      cls: 'text-blue-300 bg-blue-950' },
+  finished:     { label: 'Finished',     cls: 'text-emerald-300 bg-emerald-950' },
 }
 
 function RatingModal({ onConfirm, onCancel }) {
@@ -127,6 +128,22 @@ export default function BookCard({ book, onClick, onMove, onDelete }) {
                   className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
                   View Notes
+                </button>
+              </>
+            )}
+            {book.status === 'library' && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onMove('reading') }}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Start Reading
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowRatingModal(true) }}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Mark as Finished
                 </button>
               </>
             )}

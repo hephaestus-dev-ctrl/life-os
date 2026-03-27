@@ -2,16 +2,17 @@ import { useState } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 
 const STATUS_OPTIONS = [
+  { value: 'library',      label: 'My Library (owned)' },
   { value: 'want_to_read', label: 'Want to Read' },
-  { value: 'reading', label: 'Currently Reading' },
-  { value: 'finished', label: 'Finished' },
+  { value: 'reading',      label: 'Currently Reading' },
+  { value: 'finished',     label: 'Finished' },
 ]
 
 export default function AddBookModal({ onClose, onSave }) {
   const [form, setForm] = useState({
     title: '',
     author: '',
-    status: 'want_to_read',
+    status: 'library',
     cover_url: '',
   })
   const [saving, setSaving] = useState(false)

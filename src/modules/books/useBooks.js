@@ -26,7 +26,7 @@ export function useBooks() {
     fetchData(userId).finally(() => setLoading(false))
   }, [userId, fetchData])
 
-  const addBook = async ({ title, author, status, cover_url }) => {
+  const addBook = async ({ title, author, status, cover_url, review }) => {
     const { data, error } = await supabase
       .from('books')
       .insert({
@@ -35,6 +35,7 @@ export function useBooks() {
         author: author || null,
         status: status || 'want_to_read',
         cover_url: cover_url || null,
+        review: review || null,
       })
       .select()
       .single()
@@ -81,6 +82,7 @@ export function useBooks() {
   const getBookNotes = (bookId) => notes.filter((n) => n.book_id === bookId)
 
   const shelves = {
+    library: books.filter((b) => b.status === 'library'),
     want_to_read: books.filter((b) => b.status === 'want_to_read'),
     reading: books.filter((b) => b.status === 'reading'),
     finished: books

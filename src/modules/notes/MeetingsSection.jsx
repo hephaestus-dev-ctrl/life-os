@@ -4,6 +4,7 @@ import {
   TrashIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid'
 import { CheckCircleIcon } from '@heroicons/react/24/outline'
@@ -71,7 +72,7 @@ function AddTopicModal({ onAdd, onClose }) {
               value={context}
               onChange={(e) => setContext(e.target.value)}
               placeholder="Background, data, or context…"
-              rows={2}
+              rows={6}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-600 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
@@ -252,6 +253,50 @@ function TopicRow({ topic, onToggle, onDelete, onUpdate }) {
   )
 }
 
+// ── CSV export ────────────────────────────────────────────────
+
+function exportTrackTopics(track, topics) {
+  const trackTopics = topics
+    .filter((t) => t.track_id === track.id && t.status === 'discussed')
+    .sort((a, b) => {
+      if (a.week_start !== b.week_start) return a.week_start.localeCompare(b.week_start)
+      return (a.created_at ?? '').localeCompare(b.created_at ?? '')
+    })
+
+  const rows = [
+    ['Week', 'Topic', 'Context', 'Action Item', 'Date Discussed'],
+    ...trackTopics.map((t) => {
+      const [y, m, d] = t.week_start.split('-').map(Number)
+      const weekLabel = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      })
+      return [
+        `Week of ${weekLabel}`,
+        t.content,
+        t.context ?? '',
+        t.action_item ?? '',
+        t.week_start,
+      ]
+    }),
+  ]
+
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  const safeName = track.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  const today    = new Date().toISOString().slice(0, 10)
+  a.download = `${safeName}-topics-${today}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 // ── Individual Meeting Track ──────────────────────────────────
 
 function MeetingTrack({ track, topics, onAddTopic, onToggle, onDelete, onUpdate, onArchive, onDeleteTrack }) {
@@ -285,6 +330,14 @@ function MeetingTrack({ track, topics, onAddTopic, onToggle, onDelete, onUpdate,
       <div className="flex items-center justify-between mb-4">
         <h4 className="font-semibold text-gray-200">{track.name}</h4>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportTrackTopics(track, topics)}
+            title="Export discussed topics to CSV"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium rounded-lg border border-gray-700 transition-colors"
+          >
+            <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+            Export
+          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"

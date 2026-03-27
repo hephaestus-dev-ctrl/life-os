@@ -18,6 +18,16 @@ function formatDateLong(dateStr) {
   })
 }
 
+// Rough duration estimate: each set ~3 minutes (work + rest)
+function estimateDuration(exercises) {
+  const totalSets = exercises.reduce((sum, ex) => {
+    const sets = ex.planned_sets ?? ex.actual_sets
+    return sum + (sets != null ? sets : 3)
+  }, 0)
+  const rawMin = totalSets * 3
+  return Math.max(5, Math.round(rawMin / 5) * 5)
+}
+
 // ── Session detail modal ──────────────────────────────────────
 function SessionModal({ session, template, exercises, onClose }) {
   const type = template?.type ?? 'tonal'
@@ -199,8 +209,8 @@ export function WorkoutHistory({ sessions, templates, getSessionExercises, delet
 
   const getTemplate = (templateId) => templates.find((t) => t.id === templateId)
 
-  const openDetail = sessions.find((s) => s.id === openSession)
-  const openTemplate = openDetail ? getTemplate(openDetail.template_id) : null
+  const openDetail    = sessions.find((s) => s.id === openSession)
+  const openTemplate  = openDetail ? getTemplate(openDetail.template_id) : null
   const openExercises = openDetail ? getSessionExercises(openDetail.id) : []
 
   if (sessions.length === 0) {
@@ -216,8 +226,13 @@ export function WorkoutHistory({ sessions, templates, getSessionExercises, delet
     <>
       <div className="space-y-2">
         {sessions.map((session) => {
-          const template = getTemplate(session.template_id)
+          const template  = getTemplate(session.template_id)
+          const exercises = getSessionExercises(session.id)
           const isDeleting = deleting === session.id
+
+          const visiblePills = exercises.slice(0, 3)
+          const extraCount   = exercises.length - 3
+          const estMin       = exercises.length > 0 ? estimateDuration(exercises) : null
 
           return (
             <div
@@ -226,14 +241,43 @@ export function WorkoutHistory({ sessions, templates, getSessionExercises, delet
               className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center gap-3 cursor-pointer hover:bg-gray-800/50 transition-colors group"
             >
               <div className="flex-1 min-w-0">
-                <span className="text-gray-100 font-medium">
-                  {formatDateLong(session.session_date)}
-                </span>
-                {template && (
-                  <>
-                    <span className="text-gray-600 mx-2">·</span>
-                    <span className="text-gray-400">{template.name}</span>
-                  </>
+                {/* Line 1: date · workout name */}
+                <div className="flex items-baseline flex-wrap gap-x-0">
+                  <span className="text-gray-100 font-medium">
+                    {formatDateLong(session.session_date)}
+                  </span>
+                  {template && (
+                    <>
+                      <span className="text-gray-600 mx-2">·</span>
+                      <span className="text-gray-400">{template.name}</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Line 2: exercise pills + summary */}
+                {exercises.length > 0 && (
+                  <div className="flex items-center justify-between mt-1.5 gap-3">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      {visiblePills.map((ex) => (
+                        <span
+                          key={ex.id}
+                          className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full whitespace-nowrap"
+                        >
+                          {ex.exercise_name}
+                        </span>
+                      ))}
+                      {extraCount > 0 && (
+                        <span className="text-xs text-gray-600 whitespace-nowrap">
+                          +{extraCount} more
+                        </span>
+                      )}
+                    </div>
+                    {estMin != null && (
+                      <span className="text-xs text-gray-600 shrink-0 whitespace-nowrap">
+                        {exercises.length} exercise{exercises.length !== 1 ? 's' : ''} · ~{estMin} min
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
 

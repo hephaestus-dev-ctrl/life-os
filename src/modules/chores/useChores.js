@@ -32,6 +32,49 @@ function todayDayIndex() {
   return d === 0 ? 6 : d - 1   // Mon=0 … Sun=6
 }
 
+// ── Streak period generators (newest → oldest) ────────────────
+
+function getDailyPeriods(n) {
+  const periods = []
+  const now = new Date()
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const s = d.toISOString().slice(0, 10)
+    periods.push({ start: s, end: s })
+  }
+  return periods
+}
+
+function getWeeklyPeriods(n) {
+  const periods = []
+  const now = new Date()
+  const day = now.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  const ws = new Date(now)
+  ws.setDate(now.getDate() + diff)
+  ws.setHours(0, 0, 0, 0)
+  for (let i = 0; i < n; i++) {
+    const start = new Date(ws)
+    start.setDate(start.getDate() - i * 7)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+    periods.push({ start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) })
+  }
+  return periods
+}
+
+function getMonthlyPeriods(n) {
+  const periods = []
+  const now = new Date()
+  for (let i = 0; i < n; i++) {
+    const first = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const last  = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+    periods.push({ start: first.toISOString().slice(0, 10), end: last.toISOString().slice(0, 10) })
+  }
+  return periods
+}
+
 export function useChores() {
   const [userId, setUserId] = useState(null)
   const [chores, setChores] = useState([])
@@ -143,6 +186,40 @@ export function useChores() {
     return c.length ? c[0].completed_date : null
   }
 
+  // Returns { current, longest, history } where history is 8 booleans oldest→newest
+  const getStreakData = useCallback((choreId, cadence) => {
+    const periods = cadence === 'daily'   ? getDailyPeriods(60)
+                  : cadence === 'weekly'  ? getWeeklyPeriods(52)
+                  : getMonthlyPeriods(24)
+
+    const choreLogs = logs.filter((l) => l.chore_id === choreId)
+
+    const completedArr = periods.map((p) =>
+      choreLogs.some((l) => l.completed_date >= p.start && l.completed_date <= p.end)
+    )
+
+    // Current streak: skip current period if not done, then count consecutive
+    const startIdx = completedArr[0] ? 0 : 1
+    let current = 0
+    for (let i = startIdx; i < completedArr.length; i++) {
+      if (completedArr[i]) current++
+      else break
+    }
+
+    // Longest streak across all recorded periods
+    let longest = 0
+    let run = 0
+    for (const done of completedArr) {
+      if (done) { run++; longest = Math.max(longest, run) }
+      else run = 0
+    }
+
+    // 8-period history, oldest first (left = old, right = recent)
+    const history = completedArr.slice(0, 8).reverse()
+
+    return { current, longest, history }
+  }, [logs])
+
   return {
     chores,
     loading,
@@ -152,5 +229,6 @@ export function useChores() {
     isCompletedInPeriod,
     isOverdue,
     getLastCompleted,
+    getStreakData,
   }
 }
