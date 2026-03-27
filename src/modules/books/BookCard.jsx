@@ -156,20 +156,12 @@ export default function BookCard({ book, onClick, onMove, onDelete }) {
               </button>
             )}
             {book.status === 'reading' && (
-              <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowRatingModal(true) }}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  Mark Finished
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onMove('want_to_read') }}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  Move to Wishlist
-                </button>
-              </>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowRatingModal(true) }}
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                Mark Finished
+              </button>
             )}
           </div>
           <button

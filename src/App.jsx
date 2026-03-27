@@ -9,6 +9,7 @@ import Todo from './modules/todos/Todos'
 import Chores from './modules/chores/Chores'
 import Journal from './modules/journal/Journal'
 import Notes from './modules/notes/Notes'
+import NoteEditorPage from './modules/notes/NoteEditorPage'
 import Books from './modules/books/Books'
 import Workouts from './modules/workouts/Workouts'
 
@@ -60,6 +61,8 @@ export default function App() {
                   <Route path="/chores" element={<Chores />} />
                   <Route path="/journal" element={<Journal />} />
                   <Route path="/notes" element={<Notes />} />
+                  <Route path="/notes/new" element={<NoteEditorPage />} />
+                  <Route path="/notes/edit/:id" element={<NoteEditorPage />} />
                   <Route path="/books" element={<Books />} />
                   <Route path="/workouts" element={<Workouts />} />
                   <Route path="*" element={<Navigate to="/" replace />} />

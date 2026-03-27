@@ -1,25 +1,58 @@
 import { useState } from 'react'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 
-// ── CSV parser (tonal + swedish_ladder only) ──────────────────
+// ── CSV parser ────────────────────────────────────────────────
 function parseCSV(text, type) {
   const lines = text.trim().split('\n').filter((l) => l.trim())
   if (lines.length < 2) {
-    return { exercises: [], error: 'Need a header row + at least one exercise row.' }
+    return { exercises: [], error: 'Need a header row + at least one data row.' }
   }
   const raw = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/["']/g, ''))
-  const exIdx = raw.findIndex((h) =>
-    ['exercise', 'name', 'movement', 'exercise name'].some((k) => h.includes(k))
-  )
-  const setsIdx = raw.findIndex((h) => h.includes('set'))
-  const repsIdx = raw.findIndex((h) => h.includes('rep'))
-  const muscleIdx = raw.findIndex((h) => h.includes('muscle') || h.includes('group'))
-  const skillIdx = raw.findIndex((h) => h.includes('skill') || h.includes('level'))
 
-  if (exIdx === -1) {
-    return { exercises: [], error: 'Could not find an Exercise/Name column.' }
+  if (type === 'cardio') {
+    const activityIdx = raw.findIndex((h) => h.includes('activity'))
+    const durationIdx = raw.findIndex((h) => h.includes('duration'))
+    const distanceIdx = raw.findIndex((h) => h.includes('distance'))
+    const notesIdx    = raw.findIndex((h) => h.includes('note'))
+    if (activityIdx === -1) return { exercises: [], error: 'Could not find an Activity column.' }
+    const exercises = lines.slice(1)
+      .map((line) => {
+        const cols = line.split(',').map((c) => c.trim().replace(/["']/g, ''))
+        return {
+          exercise_name:        cols[activityIdx] ?? '',
+          activity_type:        cols[activityIdx] ?? '',
+          target_duration_secs: durationIdx >= 0 && cols[durationIdx] ? Number(cols[durationIdx]) * 60 : null,
+          target_distance:      distanceIdx >= 0 ? (cols[distanceIdx] || null) : null,
+          target_pace:          notesIdx >= 0    ? (cols[notesIdx]    || null) : null,
+        }
+      })
+      .filter((r) => r.activity_type)
+    return { exercises, error: null }
   }
 
+  if (type === 'flexibility') {
+    const exIdx       = raw.findIndex((h) => h.includes('exercise') || h.includes('name'))
+    const durationIdx = raw.findIndex((h) => h.includes('duration'))
+    if (exIdx === -1) return { exercises: [], error: 'Could not find an Exercise column.' }
+    const exercises = lines.slice(1)
+      .map((line) => {
+        const cols = line.split(',').map((c) => c.trim().replace(/["']/g, ''))
+        return {
+          exercise_name:        (cols[exIdx] ?? '').trim(),
+          target_duration_secs: durationIdx >= 0 && cols[durationIdx] ? Number(cols[durationIdx]) : null,
+        }
+      })
+      .filter((r) => r.exercise_name)
+    return { exercises, error: null }
+  }
+
+  // tonal / swedish_ladder
+  const exIdx    = raw.findIndex((h) => ['exercise', 'name', 'movement', 'exercise name'].some((k) => h.includes(k)))
+  const setsIdx  = raw.findIndex((h) => h.includes('set'))
+  const repsIdx  = raw.findIndex((h) => h.includes('rep'))
+  const muscleIdx = raw.findIndex((h) => h.includes('muscle') || h.includes('group'))
+  const skillIdx  = raw.findIndex((h) => h.includes('skill') || h.includes('level'))
+  if (exIdx === -1) return { exercises: [], error: 'Could not find an Exercise/Name column.' }
   const exercises = lines
     .slice(1)
     .map((line) => {
@@ -34,7 +67,6 @@ function parseCSV(text, type) {
       return row
     })
     .filter((r) => r.exercise_name)
-
   return { exercises, error: null }
 }
 
@@ -257,7 +289,7 @@ export function CreateTemplateModal({ onClose, onSave }) {
     if (!name.trim()) { setError('Template name is required.'); return }
 
     let exercises
-    if (inputMode === 'csv' && (type === 'tonal' || type === 'swedish_ladder')) {
+    if (inputMode === 'csv') {
       if (!preview?.length) { setError('Parse your CSV first — or switch to Manual Entry.'); return }
       exercises = preview
     } else {
@@ -299,7 +331,7 @@ export function CreateTemplateModal({ onClose, onSave }) {
     if (saveError) setError(saveError.message)
   }
 
-  const showCSV = (type === 'tonal' || type === 'swedish_ladder')
+  const showCSV = true
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -431,12 +463,13 @@ export function CreateTemplateModal({ onClose, onSave }) {
                   </button>
                 </div>
               ) : (
-                // CSV import (tonal / swedish_ladder only)
+                // CSV import
                 <div className="space-y-3">
                   <p className="text-sm text-gray-500">
-                    {type === 'tonal'
-                      ? <>Columns: <span className="text-gray-300">Exercise, Muscle, Sets, Reps</span></>
-                      : <>Columns: <span className="text-gray-300">Exercise, Sets, Reps, Skill Level</span></>}
+                    {type === 'tonal' && <>Columns: <span className="text-gray-300">Exercise, Muscle, Sets, Reps</span></>}
+                    {type === 'swedish_ladder' && <>Columns: <span className="text-gray-300">Exercise, Sets, Reps, Skill Level</span></>}
+                    {type === 'cardio' && <>Columns: <span className="text-gray-300">Activity, Duration (min), Distance, Notes</span></>}
+                    {type === 'flexibility' && <>Columns: <span className="text-gray-300">Exercise, Duration (sec), Notes</span></>}
                     <br />Column names are detected automatically.
                   </p>
                   <textarea
@@ -446,7 +479,11 @@ export function CreateTemplateModal({ onClose, onSave }) {
                     placeholder={
                       type === 'tonal'
                         ? 'Exercise,Muscle,Sets,Reps\nChest Press,Chest,3,10\nRow,Back,3,12'
-                        : 'Exercise,Sets,Reps,Skill Level\nPull-up,3,8,intermediate\nDip,3,10,beginner'
+                        : type === 'swedish_ladder'
+                        ? 'Exercise,Sets,Reps,Skill Level\nPull-up,3,8,intermediate\nDip,3,10,beginner'
+                        : type === 'cardio'
+                        ? 'Activity,Duration (min),Distance,Notes\nRunning,30,3.1,Easy pace recovery run\nCycling,45,12,Moderate effort'
+                        : 'Exercise,Duration (sec),Notes\nHip Flexor Stretch,60,Hold each side\nHamstring Stretch,45,Slow and controlled'
                     }
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 font-mono focus:outline-none focus:border-indigo-500 resize-none"
                   />
@@ -462,16 +499,29 @@ export function CreateTemplateModal({ onClose, onSave }) {
                   {preview && (
                     <div className="bg-gray-800 rounded-xl p-3 space-y-2">
                       <p className="text-xs text-green-400 font-medium">
-                        {preview.length} exercises parsed
+                        {preview.length} {type === 'cardio' ? 'activities' : type === 'flexibility' ? 'exercises' : 'exercises'} parsed
                       </p>
                       <div className="max-h-48 overflow-y-auto space-y-1">
                         {preview.map((ex, i) => (
                           <div key={i} className="flex justify-between text-sm">
-                            <span className="text-gray-200">{ex.exercise_name}</span>
+                            <span className="text-gray-200">{ex.exercise_name || ex.activity_type}</span>
                             <span className="text-gray-500">
-                              {ex.sets ?? '?'} × {ex.reps ?? '?'}
-                              {ex.muscle_group && ` · ${ex.muscle_group}`}
-                              {ex.skill_level && ` · ${ex.skill_level}`}
+                              {type === 'cardio' && (
+                                <>
+                                  {ex.target_duration_secs ? `${Math.round(ex.target_duration_secs / 60)} min` : '—'}
+                                  {ex.target_distance ? ` · ${ex.target_distance}` : ''}
+                                </>
+                              )}
+                              {type === 'flexibility' && (
+                                <>{ex.target_duration_secs ? `${ex.target_duration_secs}s` : '—'}</>
+                              )}
+                              {(type === 'tonal' || type === 'swedish_ladder') && (
+                                <>
+                                  {ex.sets ?? '?'} × {ex.reps ?? '?'}
+                                  {ex.muscle_group && ` · ${ex.muscle_group}`}
+                                  {ex.skill_level && ` · ${ex.skill_level}`}
+                                </>
+                              )}
                             </span>
                           </div>
                         ))}

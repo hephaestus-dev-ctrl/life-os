@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PlusIcon, MagnifyingGlassIcon, BoltIcon } from '@heroicons/react/24/outline'
 import { useNotes } from './useNotes'
 import NoteCard from './NoteCard'
@@ -141,11 +142,12 @@ export default function Notes() {
   const {
     notes, workNotes, meetingTracks, meetingTopics, loading,
     addNote, updateNote, deleteNote,
-    addWorkNote, updateWorkNote, deleteWorkNote,
+    deleteWorkNote,
     addMeetingTrack, deleteMeetingTrack,
     addMeetingTopic, toggleMeetingTopic, updateMeetingTopic, deleteMeetingTopic, archiveMeetingWeek,
   } = useNotes()
 
+  const navigate = useNavigate()
   const [tab,       setTab]       = useState('all')
   const [search,    setSearch]    = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -231,8 +233,6 @@ export default function Notes() {
         <div className="space-y-10">
           <WorkNotesSection
             notes={workNotes}
-            onAdd={addWorkNote}
-            onUpdate={updateWorkNote}
             onDelete={deleteWorkNote}
           />
           <div className="border-t border-gray-800 pt-8">
@@ -284,8 +284,8 @@ export default function Notes() {
                 <NoteCard
                   key={note.id}
                   note={note}
-                  onUpdate={updateNote}
                   onDelete={deleteNote}
+                  onOpen={() => navigate(`/notes/edit/${note.id}`)}
                 />
               ))}
             </div>

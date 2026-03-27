@@ -6,9 +6,9 @@ import BookCard from './BookCard'
 import BookDetail from './BookDetail'
 
 const SHELF_TABS = [
-  { key: 'library',      label: 'My Library' },
   { key: 'reading',      label: 'Currently Reading' },
   { key: 'finished',     label: 'Finished' },
+  { key: 'library',      label: 'My Bookshelf' },
   { key: 'want_to_read', label: 'Want to Read' },
   { key: 'history',      label: 'History' },
 ]
@@ -245,7 +245,7 @@ export default function Books() {
     getBookNotes,
   } = useBooks()
 
-  const [tab,             setTab]             = useState('library')
+  const [tab,             setTab]             = useState('reading')
   const [selectedBook,    setSelectedBook]    = useState(null)
   const [showAddModal,    setShowAddModal]    = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
@@ -305,7 +305,7 @@ export default function Books() {
   const currentShelf = tab === 'history' ? shelves.finished : (shelves[tab] ?? [])
 
   const EMPTY_MESSAGES = {
-    library:      "Your physical library is empty. Add books you own or import from CSV.",
+    library:      "Your bookshelf is empty. Add books you own or import from CSV.",
     reading:      "You're not reading anything right now.",
     finished:     'No finished books yet.',
     want_to_read: 'No books on your wishlist yet.',

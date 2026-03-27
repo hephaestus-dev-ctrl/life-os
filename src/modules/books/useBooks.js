@@ -63,10 +63,10 @@ export function useBooks() {
     return { error }
   }
 
-  const addNote = async ({ book_id, content, note_type }) => {
+  const addNote = async ({ book_id, content, note_type, location_ref }) => {
     const { data, error } = await supabase
       .from('book_notes')
-      .insert({ book_id, user_id: userId, content, note_type: note_type || 'note' })
+      .insert({ book_id, user_id: userId, content, note_type: note_type || 'note', location_ref: location_ref || null })
       .select()
       .single()
     if (!error) setNotes((prev) => [...prev, data])

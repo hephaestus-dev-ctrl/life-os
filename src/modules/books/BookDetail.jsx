@@ -18,8 +18,7 @@ const MOVE_OPTIONS = {
     { status: 'reading', label: 'Start Reading' },
   ],
   reading: [
-    { status: 'want_to_read', label: 'Move to Wishlist' },
-    { status: 'finished',     label: 'Mark Finished' },
+    { status: 'finished', label: 'Mark Finished' },
   ],
   finished: [],
 }
@@ -97,8 +96,7 @@ function AnnotationModal({ noteType, onSave, onClose }) {
     const c = content.trim()
     if (!c) return
     setSaving(true)
-    const finalContent = location.trim() ? `${location.trim()} — ${c}` : c
-    await onSave(finalContent)
+    await onSave(c, location.trim() || null)
     setSaving(false)
     onClose()
   }
@@ -124,13 +122,16 @@ function AnnotationModal({ noteType, onSave, onClose }) {
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-indigo-500 resize-none"
             autoFocus
           />
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. p. 47 or Chapter 3"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-indigo-500"
-          />
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Location (optional)</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. p. 47 or Chapter 3 — The Forge"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
         </div>
         <div className="flex gap-3 mt-5">
           <button
@@ -184,8 +185,8 @@ export default function BookDetail({ book, notes, onBack, onUpdate, onDelete, on
     setShowFinishedModal(false)
   }
 
-  const handleAddNote = async (content) => {
-    await onAddNote({ book_id: book.id, content, note_type: noteTab })
+  const handleAddNote = async (content, locationRef) => {
+    await onAddNote({ book_id: book.id, content, note_type: noteTab, location_ref: locationRef })
   }
 
   const handleSaveReview = async () => {
@@ -379,7 +380,14 @@ export default function BookDetail({ book, notes, onBack, onUpdate, onDelete, on
                       key={note.id}
                       className={`flex items-start gap-3 border rounded-lg p-3 ${type?.bg}`}
                     >
-                      <p className="flex-1 text-sm text-gray-200 leading-relaxed">{note.content}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-200 leading-relaxed">{note.content}</p>
+                        {note.location_ref && (
+                          <span className="inline-block text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full mt-1.5">
+                            {note.location_ref}
+                          </span>
+                        )}
+                      </div>
                       <button
                         onClick={() => onDeleteNote(note.id)}
                         className="flex-shrink-0 text-gray-600 hover:text-red-400 transition-colors mt-0.5"
