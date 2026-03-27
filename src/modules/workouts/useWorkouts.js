@@ -3,8 +3,10 @@ import { supabase } from '../../lib/supabase'
 
 export function useWorkouts() {
   const [userId, setUserId] = useState(null)
-  const [workouts, setWorkouts] = useState([])
-  const [exercises, setExercises] = useState([])
+  const [templates, setTemplates] = useState([])
+  const [sessions, setSessions] = useState([])
+  const [sessionExercises, setSessionExercises] = useState([])
+  const [ladderStages, setLadderStages] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -12,20 +14,41 @@ export function useWorkouts() {
   }, [])
 
   const fetchData = useCallback(async (uid) => {
-    const [workoutsRes, exercisesRes] = await Promise.all([
+    const [tRes, sRes, lRes] = await Promise.all([
       supabase
-        .from('workouts')
+        .from('workout_templates')
+        .select('*, template_exercises(*)')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('workout_sessions')
         .select('*')
         .eq('user_id', uid)
-        .order('workout_date', { ascending: false }),
+        .order('session_date', { ascending: false }),
       supabase
-        .from('workout_exercises')
+        .from('swedish_ladder_stages')
         .select('*')
         .eq('user_id', uid)
-        .order('created_at'),
+        .order('started_at', { ascending: true }),
     ])
-    if (!workoutsRes.error) setWorkouts(workoutsRes.data ?? [])
-    if (!exercisesRes.error) setExercises(exercisesRes.data ?? [])
+
+    if (!tRes.error) setTemplates(tRes.data ?? [])
+    if (!lRes.error) setLadderStages(lRes.data ?? [])
+
+    const sessionsData = sRes.data ?? []
+    if (!sRes.error) setSessions(sessionsData)
+
+    if (sessionsData.length > 0) {
+      const ids = sessionsData.map((s) => s.id)
+      const { data: seData } = await supabase
+        .from('session_exercises')
+        .select('*')
+        .in('session_id', ids)
+        .order('order_index')
+      setSessionExercises(seData ?? [])
+    } else {
+      setSessionExercises([])
+    }
   }, [])
 
   useEffect(() => {
@@ -34,127 +57,146 @@ export function useWorkouts() {
     fetchData(userId).finally(() => setLoading(false))
   }, [userId, fetchData])
 
-  const addWorkout = async ({ workout_date, title, workout_type, duration_minutes, notes, source }) => {
-    const { data, error } = await supabase
-      .from('workouts')
+  // ---- Templates ----
+
+  const createTemplate = async ({ name, type, exercises }) => {
+    const { data: tmpl, error } = await supabase
+      .from('workout_templates')
+      .insert({ name, type, user_id: userId })
+      .select()
+      .single()
+    if (error) return { error }
+
+    if (exercises?.length) {
+      const rows = exercises.map((ex, i) => ({
+        template_id: tmpl.id,
+        exercise_name: ex.exercise_name,
+        sets: ex.sets ?? null,
+        reps: ex.reps ?? null,
+        order_index: i,
+      }))
+      await supabase.from('template_exercises').insert(rows)
+    }
+
+    await fetchData(userId)
+    return { data: tmpl }
+  }
+
+  const deleteTemplate = async (templateId) => {
+    const { error } = await supabase.from('workout_templates').delete().eq('id', templateId)
+    if (!error) setTemplates((prev) => prev.filter((t) => t.id !== templateId))
+  }
+
+  // ---- Sessions ----
+
+  const logSession = async ({ templateId, sessionDate, notes, exercises }) => {
+    const { data: session, error } = await supabase
+      .from('workout_sessions')
       .insert({
         user_id: userId,
-        workout_date,
-        title: title || null,
-        workout_type,
-        duration_minutes: duration_minutes || null,
+        template_id: templateId || null,
+        session_date: sessionDate,
         notes: notes || null,
-        source: source || 'manual',
       })
       .select()
       .single()
-    if (!error) setWorkouts((prev) => [data, ...prev])
-    return { data, error }
-  }
+    if (error) return { error }
 
-  const updateWorkout = async (workoutId, updates) => {
-    const { data, error } = await supabase
-      .from('workouts')
-      .update(updates)
-      .eq('id', workoutId)
-      .select()
-      .single()
-    if (!error) setWorkouts((prev) => prev.map((w) => (w.id === workoutId ? data : w)))
-    return { data, error }
-  }
-
-  const deleteWorkout = async (workoutId) => {
-    const { error } = await supabase.from('workouts').delete().eq('id', workoutId)
-    if (!error) {
-      setWorkouts((prev) => prev.filter((w) => w.id !== workoutId))
-      setExercises((prev) => prev.filter((e) => e.workout_id !== workoutId))
+    if (exercises?.length) {
+      const rows = exercises.map((ex, i) => ({
+        session_id: session.id,
+        exercise_name: ex.exercise_name,
+        planned_sets: ex.planned_sets ?? null,
+        planned_reps: ex.planned_reps ?? null,
+        actual_weight_lbs:
+          ex.actual_weight_lbs != null && ex.actual_weight_lbs !== ''
+            ? Number(ex.actual_weight_lbs)
+            : null,
+        notes: ex.notes ?? null,
+        order_index: i,
+      }))
+      await supabase.from('session_exercises').insert(rows)
     }
-    return { error }
+
+    await fetchData(userId)
+    return { data: session }
   }
 
-  const addExercise = async ({ workout_id, exercise_name, sets, reps, weight_lbs, notes }) => {
+  const deleteSession = async (sessionId) => {
+    const { error } = await supabase.from('workout_sessions').delete().eq('id', sessionId)
+    if (!error) {
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+      setSessionExercises((prev) => prev.filter((se) => se.session_id !== sessionId))
+    }
+  }
+
+  const getSessionExercises = (sessionId) =>
+    sessionExercises
+      .filter((se) => se.session_id === sessionId)
+      .sort((a, b) => a.order_index - b.order_index)
+
+  // ---- Swedish Ladder ----
+
+  const currentStage = ladderStages.length ? ladderStages[ladderStages.length - 1] : null
+
+  const advanceStage = async () => {
+    const nextStage = (currentStage?.stage_number ?? 0) + 1
     const { data, error } = await supabase
-      .from('workout_exercises')
-      .insert({ workout_id, user_id: userId, exercise_name, sets, reps, weight_lbs, notes })
+      .from('swedish_ladder_stages')
+      .insert({ user_id: userId, stage_number: nextStage })
       .select()
       .single()
-    if (!error) setExercises((prev) => [...prev, data])
+    if (!error) setLadderStages((prev) => [...prev, data])
     return { data, error }
   }
 
-  const addExercisesBatch = async (exercisesArr) => {
-    const rows = exercisesArr.map((ex) => ({ ...ex, user_id: userId }))
+  const setStage = async (stageNumber) => {
     const { data, error } = await supabase
-      .from('workout_exercises')
-      .insert(rows)
+      .from('swedish_ladder_stages')
+      .insert({ user_id: userId, stage_number: stageNumber })
       .select()
-    if (!error) setExercises((prev) => [...prev, ...(data ?? [])])
+      .single()
+    if (!error) setLadderStages((prev) => [...prev, data])
     return { data, error }
   }
 
-  const deleteExercise = async (exerciseId) => {
-    const { error } = await supabase.from('workout_exercises').delete().eq('id', exerciseId)
-    if (!error) setExercises((prev) => prev.filter((e) => e.id !== exerciseId))
-    return { error }
-  }
+  // ---- Progress ----
 
-  const getWorkoutExercises = (workoutId) =>
-    exercises.filter((e) => e.workout_id === workoutId)
-
-  // Per-exercise history for progress charts, joined with workout date
-  const getExerciseHistory = (exerciseName) =>
-    exercises
-      .filter((e) => e.exercise_name.toLowerCase() === exerciseName.toLowerCase())
-      .map((e) => {
-        const workout = workouts.find((w) => w.id === e.workout_id)
-        return { ...e, workout_date: workout?.workout_date ?? null }
-      })
-      .filter((e) => e.workout_date)
-      .sort((a, b) => a.workout_date.localeCompare(b.workout_date))
-
-  // All unique exercise names across all workouts
-  const allExerciseNames = [...new Set(exercises.map((e) => e.exercise_name))].sort()
-
-  // Parse Tonal-style CSV: expects header row with Exercise/Name, Sets, Reps, Weight columns
-  const parseTonalCSV = (csvText) => {
-    const lines = csvText.trim().split('\n').filter((l) => l.trim())
-    if (lines.length < 2) return []
-
-    const header = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/"/g, ''))
-    const exerciseIdx = header.findIndex((h) => h.includes('exercise') || h.includes('name') || h === 'move')
-    const setsIdx     = header.findIndex((h) => h.includes('set'))
-    const repsIdx     = header.findIndex((h) => h.includes('rep'))
-    const weightIdx   = header.findIndex((h) => h.includes('weight') || h.includes('lb') || h.includes('kg'))
-
-    return lines
-      .slice(1)
-      .map((line) => {
-        const cols = line.split(',').map((c) => c.trim().replace(/"/g, ''))
-        const name = exerciseIdx >= 0 ? cols[exerciseIdx] : cols[0]
-        if (!name) return null
-        return {
-          exercise_name: name,
-          sets:       setsIdx   >= 0 ? (parseInt(cols[setsIdx])    || null) : null,
-          reps:       repsIdx   >= 0 ? (parseInt(cols[repsIdx])    || null) : null,
-          weight_lbs: weightIdx >= 0 ? (parseFloat(cols[weightIdx]) || null) : null,
-        }
+  const getExerciseProgress = (exerciseName) => {
+    if (!exerciseName) return []
+    const lower = exerciseName.toLowerCase()
+    return sessionExercises
+      .filter((se) => se.exercise_name.toLowerCase() === lower && se.actual_weight_lbs != null)
+      .map((se) => {
+        const session = sessions.find((s) => s.id === se.session_id)
+        return session ? { date: session.session_date, weight: Number(se.actual_weight_lbs) } : null
       })
       .filter(Boolean)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
   }
 
+  const allExerciseNames = [
+    ...new Set(
+      templates.flatMap((t) => (t.template_exercises ?? []).map((te) => te.exercise_name))
+    ),
+  ].sort()
+
   return {
-    workouts,
-    exercises,
+    templates,
+    sessions,
+    sessionExercises,
+    ladderStages,
+    currentStage,
     loading,
-    addWorkout,
-    updateWorkout,
-    deleteWorkout,
-    addExercise,
-    addExercisesBatch,
-    deleteExercise,
-    getWorkoutExercises,
-    getExerciseHistory,
+    createTemplate,
+    deleteTemplate,
+    logSession,
+    deleteSession,
+    getSessionExercises,
+    getExerciseProgress,
+    advanceStage,
+    setStage,
     allExerciseNames,
-    parseTonalCSV,
+    refresh: () => userId && fetchData(userId),
   }
 }

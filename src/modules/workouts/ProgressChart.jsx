@@ -1,176 +1,177 @@
-// SVG-based line chart — no external library needed
-
-const PAD = { top: 20, right: 24, bottom: 44, left: 54 }
-const W = 640
-const H = 240
-
-function fmtDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00')
-  return `${d.getMonth() + 1}/${d.getDate()}`
-}
+// SVG line chart for weight-over-time progress — no external library
 
 function niceMax(val) {
   if (val <= 0) return 10
-  const magnitude = Math.pow(10, Math.floor(Math.log10(val)))
-  return Math.ceil(val / magnitude) * magnitude
+  const exp = Math.floor(Math.log10(val))
+  const factor = Math.pow(10, exp)
+  return Math.ceil(val / factor) * factor
 }
 
-export default function ProgressChart({ exerciseName, history }) {
-  if (!history.length) return null
+export function ProgressChart({ data }) {
+  // data: [{ date: 'YYYY-MM-DD', weight: number }]
+  if (!data || data.length === 0) return null
 
-  // Primary metric: weight_lbs if any session has it, else reps
-  const hasWeight = history.some((h) => h.weight_lbs != null && h.weight_lbs > 0)
-  const metric = hasWeight ? 'weight_lbs' : 'reps'
-  const metricLabel = hasWeight ? 'Weight (lbs)' : 'Reps'
+  const W = 560
+  const H = 220
+  const PAD = { top: 16, right: 16, bottom: 40, left: 52 }
+  const chartW = W - PAD.left - PAD.right
+  const chartH = H - PAD.top - PAD.bottom
 
-  const values = history.map((h) => h[metric] ?? 0)
-  const minVal  = 0
-  const maxVal  = niceMax(Math.max(...values))
-  const valRange = maxVal - minVal || 1
+  const weights = data.map((d) => d.weight)
+  const minW = Math.min(...weights)
+  const maxW = Math.max(...weights)
+  const yMax = niceMax(maxW * 1.1)
+  const yMin = Math.max(0, Math.floor(minW * 0.85))
+  const yRange = yMax - yMin || 1
 
-  const innerW = W - PAD.left - PAD.right
-  const innerH = H - PAD.top - PAD.bottom
+  const xScale = (i) =>
+    data.length === 1 ? chartW / 2 : (i / (data.length - 1)) * chartW
+  const yScale = (w) => chartH - ((w - yMin) / yRange) * chartH
 
-  const pts = history.map((h, i) => ({
-    x:    PAD.left + (i / Math.max(history.length - 1, 1)) * innerW,
-    y:    PAD.top  + innerH - (((h[metric] ?? 0) - minVal) / valRange) * innerH,
-    val:  h[metric],
-    date: h.workout_date,
+  const points = data.map((d, i) => ({
+    x: xScale(i) + PAD.left,
+    y: yScale(d.weight) + PAD.top,
+    date: d.date,
+    weight: d.weight,
   }))
 
-  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-  const areaPath = pts.length > 1
-    ? `${linePath} L ${pts[pts.length - 1].x.toFixed(1)} ${(PAD.top + innerH).toFixed(1)} L ${pts[0].x.toFixed(1)} ${(PAD.top + innerH).toFixed(1)} Z`
-    : ''
+  const linePath = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+    .join(' ')
 
-  // Y-axis: 5 evenly spaced ticks
-  const yTicks = 5
-  const yTickVals = Array.from({ length: yTicks }, (_, i) =>
-    minVal + ((maxVal - minVal) / (yTicks - 1)) * i
-  )
+  const areaPath = [
+    `M ${points[0].x.toFixed(1)},${(PAD.top + chartH).toFixed(1)}`,
+    ...points.map((p) => `L ${p.x.toFixed(1)},${p.y.toFixed(1)}`),
+    `L ${points[points.length - 1].x.toFixed(1)},${(PAD.top + chartH).toFixed(1)}`,
+    'Z',
+  ].join(' ')
 
-  // X-axis: show at most 10 labels to avoid crowding
-  const xStep = Math.ceil(pts.length / 10)
-  const xLabels = pts.filter((_, i) => i % xStep === 0 || i === pts.length - 1)
+  const yTicks = Array.from({ length: 5 }, (_, i) => yMin + ((yMax - yMin) * i) / 4)
 
-  const avg    = values.reduce((a, b) => a + b, 0) / values.length
-  const latest = values[values.length - 1] ?? 0
-  const peak   = Math.max(...values)
+  const xLabelIndices =
+    data.length <= 6
+      ? data.map((_, i) => i)
+      : [
+          0,
+          Math.floor(data.length / 4),
+          Math.floor(data.length / 2),
+          Math.floor((data.length * 3) / 4),
+          data.length - 1,
+        ]
+
+  const peak = Math.max(...weights)
+  const avg = (weights.reduce((a, b) => a + b, 0) / weights.length).toFixed(1)
+  const latest = weights[weights.length - 1]
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-      <h3 className="font-semibold text-gray-100">{exerciseName}</h3>
-      <p className="text-xs text-gray-500 mt-0.5 mb-5">
-        {metricLabel} · {history.length} {history.length === 1 ? 'session' : 'sessions'}
-      </p>
+    <div className="space-y-4">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 280 }}>
+        <defs>
+          <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
 
-      <div className="overflow-x-auto">
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          className="w-full"
-          style={{ minWidth: 300, height: H }}
-          aria-label={`${exerciseName} progress chart`}
-        >
-          {/* Y-axis grid lines + labels */}
-          {yTickVals.map((val, i) => {
-            const y = PAD.top + innerH - ((val - minVal) / valRange) * innerH
-            return (
-              <g key={i}>
-                <line
-                  x1={PAD.left}
-                  y1={y.toFixed(1)}
-                  x2={PAD.left + innerW}
-                  y2={y.toFixed(1)}
-                  stroke="#1F2937"
-                  strokeWidth="1"
-                />
-                <text
-                  x={PAD.left - 8}
-                  y={(y + 4).toFixed(1)}
-                  textAnchor="end"
-                  fill="#4B5563"
-                  fontSize="11"
-                >
-                  {Math.round(val)}
-                </text>
-              </g>
-            )
-          })}
-
-          {/* X-axis labels */}
-          {xLabels.map((p, i) => (
-            <text
-              key={i}
-              x={p.x.toFixed(1)}
-              y={(H - 6).toFixed(1)}
-              textAnchor="middle"
-              fill="#4B5563"
-              fontSize="10"
-            >
-              {fmtDate(p.date)}
-            </text>
-          ))}
-
-          {/* Area fill */}
-          {areaPath && (
-            <path d={areaPath} fill="#6366F1" fillOpacity="0.08" />
-          )}
-
-          {/* Line */}
-          {pts.length > 1 && (
-            <path
-              d={linePath}
-              fill="none"
-              stroke="#6366F1"
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          )}
-
-          {/* Data points */}
-          {pts.map((p, i) => (
+        {/* Grid + Y labels */}
+        {yTicks.map((tick, i) => {
+          const y = yScale(tick) + PAD.top
+          return (
             <g key={i}>
-              <circle
-                cx={p.x.toFixed(1)}
-                cy={p.y.toFixed(1)}
-                r="4"
-                fill="#6366F1"
-                stroke="#111827"
-                strokeWidth="1.5"
+              <line
+                x1={PAD.left}
+                y1={y}
+                x2={PAD.left + chartW}
+                y2={y}
+                stroke="#374151"
+                strokeDasharray="3 3"
               />
-              <title>{p.date}: {p.val ?? 0} {metricLabel}</title>
+              <text
+                x={PAD.left - 6}
+                y={y}
+                textAnchor="end"
+                dominantBaseline="middle"
+                fontSize={10}
+                fill="#6b7280"
+              >
+                {tick.toFixed(0)}
+              </text>
             </g>
-          ))}
+          )
+        })}
 
-          {/* Y-axis label (rotated) */}
+        {/* Area fill */}
+        <path d={areaPath} fill="url(#wGrad)" />
+
+        {/* Line */}
+        <path
+          d={linePath}
+          fill="none"
+          stroke="#6366f1"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {/* Data points with native SVG tooltip */}
+        {points.map((p, i) => (
+          <g key={i}>
+            <title>
+              {p.date}: {p.weight} lbs
+            </title>
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={4}
+              fill="#6366f1"
+              stroke="#111827"
+              strokeWidth={2}
+            />
+          </g>
+        ))}
+
+        {/* X labels */}
+        {xLabelIndices.map((i) => (
           <text
-            transform={`rotate(-90)`}
-            x={(-(PAD.top + innerH / 2)).toFixed(1)}
-            y="14"
+            key={i}
+            x={xScale(i) + PAD.left}
+            y={PAD.top + chartH + 18}
             textAnchor="middle"
-            fill="#4B5563"
-            fontSize="11"
+            fontSize={10}
+            fill="#6b7280"
           >
-            {metricLabel}
+            {data[i].date.slice(5)}
           </text>
-        </svg>
-      </div>
+        ))}
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-gray-800">
-        <div className="text-center">
-          <p className="text-xl font-bold text-indigo-300">{peak}</p>
-          <p className="text-xs text-gray-500 mt-0.5">Peak</p>
-        </div>
-        <div className="text-center">
-          <p className="text-xl font-bold text-gray-200">{Math.round(avg)}</p>
-          <p className="text-xs text-gray-500 mt-0.5">Average</p>
-        </div>
-        <div className="text-center">
-          <p className="text-xl font-bold text-gray-200">{latest}</p>
-          <p className="text-xs text-gray-500 mt-0.5">Latest</p>
-        </div>
+        {/* Axes */}
+        <line
+          x1={PAD.left}
+          y1={PAD.top}
+          x2={PAD.left}
+          y2={PAD.top + chartH}
+          stroke="#374151"
+        />
+        <line
+          x1={PAD.left}
+          y1={PAD.top + chartH}
+          x2={PAD.left + chartW}
+          y2={PAD.top + chartH}
+          stroke="#374151"
+        />
+      </svg>
+
+      <div className="grid grid-cols-3 gap-3 text-center">
+        {[
+          { label: 'Peak', value: `${peak} lbs` },
+          { label: 'Average', value: `${avg} lbs` },
+          { label: 'Latest', value: `${latest} lbs` },
+        ].map(({ label, value }) => (
+          <div key={label} className="bg-gray-800 rounded-xl py-3">
+            <div className="text-xs text-gray-500 mb-1">{label}</div>
+            <div className="text-lg font-semibold text-indigo-400">{value}</div>
+          </div>
+        ))}
       </div>
     </div>
   )
