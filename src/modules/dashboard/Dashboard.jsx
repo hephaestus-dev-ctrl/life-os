@@ -132,15 +132,18 @@ function useDashboardSummary(userId) {
 
 // ── Stat card ─────────────────────────────────────────────────
 
-function StatCard({ to, label, value, sub, alert, accentClass }) {
+function StatCard({ to, label, value, sub, alert, borderColor }) {
   return (
     <Link
       to={to}
-      className={`flex flex-col gap-1 border rounded-xl px-4 py-3 transition-all hover:-translate-y-px ${accentClass} ${
-        alert
-          ? 'bg-red-950/30 border-red-900/50 hover:border-red-800/80'
-          : 'bg-gray-900 border-gray-800 hover:border-gray-700'
+      className={`flex flex-col gap-1 rounded-xl px-4 py-3 transition-all hover:-translate-y-px ${
+        alert ? 'hover:brightness-110' : ''
       }`}
+      style={{
+        backgroundColor: alert ? 'rgba(239,68,68,0.1)' : '#1e2130',
+        border: alert ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.07)',
+        borderLeft: `3px solid ${borderColor}`,
+      }}
     >
       <p className={`text-[11px] font-medium uppercase tracking-[0.06em] truncate ${
         alert ? 'text-red-400' : 'text-gray-500'
@@ -213,7 +216,7 @@ export default function Dashboard({ session }) {
             <StatCard
               to="/habits"
               label="Habits today"
-              accentClass="stat-border-purple"
+              borderColor="#6366f1"
               value={`${s.habitCompleted}/${s.habitTotal}`}
               sub={
                 s.habitTotal === 0 ? 'none tracked'
@@ -224,14 +227,14 @@ export default function Dashboard({ session }) {
             <StatCard
               to="/todo"
               label="Due today"
-              accentClass="stat-border-amber"
+              borderColor="#f59e0b"
               value={s.dueTodayTodos.length}
               sub={s.dueTodayTodos.length === 1 ? '1 task' : `${s.dueTodayTodos.length} tasks`}
             />
             <StatCard
               to="/todo"
               label="Overdue"
-              accentClass="stat-border-red"
+              borderColor="#ef4444"
               value={s.overdueTodos.length}
               sub={s.overdueTodos.length > 0 ? 'needs attention' : 'all clear'}
               alert={s.overdueTodos.length > 0}
@@ -239,14 +242,14 @@ export default function Dashboard({ session }) {
             <StatCard
               to="/chores"
               label="Chores pending"
-              accentClass="stat-border-teal"
+              borderColor="#14b8a6"
               value={s.choresIncomplete}
               sub="this period"
             />
             <StatCard
               to="/books"
               label="Reading"
-              accentClass="stat-border-blue"
+              borderColor="#3b82f6"
               value={s.currentlyReading ? '📖' : '—'}
               sub={
                 s.currentlyReading
@@ -259,7 +262,7 @@ export default function Dashboard({ session }) {
             <StatCard
               to="/books"
               label="Books finished"
-              accentClass="stat-border-emerald"
+              borderColor="#10b981"
               value={s.booksFinished}
               sub="total"
             />

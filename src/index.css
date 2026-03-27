@@ -105,9 +105,9 @@ body {
    Left-border accent with subtle purple tint.
    pl-[10px] compensates for the 2px border so text stays aligned. */
 .nav-active {
-  background-color: var(--accent-purple-subtle);
-  color: #818cf8;
-  border-left: 2px solid var(--accent-purple);
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border-left: 3px solid #6366f1;
   padding-left: 10px;
 }
 

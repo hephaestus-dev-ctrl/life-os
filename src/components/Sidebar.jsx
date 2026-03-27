@@ -19,14 +19,26 @@ export default function Sidebar({ session }) {
 
   return (
     <aside
-      className={`hidden md:flex flex-col bg-gray-900 border-r border-gray-800 transition-all duration-300 ${
+      className={`hidden md:flex flex-col border-r transition-all duration-300 ${
         collapsed ? 'w-16' : 'w-56'
       }`}
+      style={{ backgroundColor: '#1a1d27', borderRightColor: 'rgba(255,255,255,0.08)' }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
+      <div className="flex items-center justify-between px-4 py-4 border-b" style={{ borderBottomColor: 'rgba(255,255,255,0.08)' }}>
         {!collapsed && (
-          <span className="gradient-text font-bold text-[18px] tracking-tight select-none">
+          <span
+            className="select-none"
+            style={{
+              background: 'linear-gradient(135deg, #6366f1 0%, #60a5fa 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontSize: '20px',
+              fontWeight: '800',
+              letterSpacing: '-0.025em',
+            }}
+          >
             Life OS
           </span>
         )}
@@ -69,7 +81,7 @@ export default function Sidebar({ session }) {
       </nav>
 
       {/* User + logout */}
-      <div className="px-2 py-3 space-y-0.5 border-t border-gray-800">
+      <div className="px-2 py-3 space-y-0.5 border-t" style={{ borderTopColor: 'rgba(255,255,255,0.08)' }}>
         {!collapsed && session?.user?.email && (
           <p className="px-3 py-1 text-xs text-gray-700 truncate">
             {session.user.email}

@@ -3,7 +3,7 @@ import BottomNav from './BottomNav'
 
 export default function Layout({ session, children }) {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex">
+    <div className="min-h-screen flex" style={{ backgroundColor: '#0f1117', color: '#e2e8f0', fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Desktop sidebar */}
       <Sidebar session={session} />
 
