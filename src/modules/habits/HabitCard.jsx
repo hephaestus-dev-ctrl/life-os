@@ -3,15 +3,15 @@ import { TrashIcon, ChevronDownIcon, ChevronUpIcon, FireIcon } from '@heroicons/
 import HeatmapCalendar from './HeatmapCalendar'
 
 const CATEGORY_COLORS = {
-  Health: 'bg-emerald-950 text-emerald-400',
-  Mind: 'bg-purple-950 text-purple-400',
-  Work: 'bg-amber-950 text-amber-400',
-  Personal: 'bg-blue-950 text-blue-400',
+  Health:   'bg-emerald-950/80 text-emerald-400 border border-emerald-900/50',
+  Mind:     'bg-purple-950/80 text-purple-400 border border-purple-900/50',
+  Work:     'bg-amber-950/80 text-amber-400 border border-amber-900/50',
+  Personal: 'bg-blue-950/80 text-blue-400 border border-blue-900/50',
 }
 
 function Checkmark() {
   return (
-    <svg className="w-3.5 h-3.5 text-white mx-auto" fill="currentColor" viewBox="0 0 20 20">
+    <svg className="w-3 h-3 text-white mx-auto" fill="currentColor" viewBox="0 0 20 20">
       <path
         fillRule="evenodd"
         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -39,12 +39,14 @@ export default function HabitCard({
     await onDelete(habit.id)
   }
 
-  const colorClass = CATEGORY_COLORS[habit.category] ?? 'bg-gray-800 text-gray-400'
+  const colorClass = CATEGORY_COLORS[habit.category] ?? 'bg-gray-800/80 text-gray-400 border border-gray-700/50'
 
   return (
     <div
-      className={`bg-gray-900 border rounded-xl p-4 transition-colors ${
-        isCompleted ? 'border-indigo-800' : 'border-gray-800'
+      className={`bg-gray-900 border rounded-xl p-4 transition-all ${
+        isCompleted
+          ? 'border-indigo-600/30 bg-indigo-950/10'
+          : 'border-gray-800 hover:border-gray-700'
       }`}
     >
       {/* Main row */}
@@ -52,10 +54,10 @@ export default function HabitCard({
         {/* Circle checkbox */}
         <button
           onClick={() => onToggle(habit.id)}
-          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all duration-150 ${
+          className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all duration-150 ${
             isCompleted
               ? 'bg-indigo-600 border-indigo-600'
-              : 'border-gray-600 hover:border-indigo-400'
+              : 'border-gray-700 hover:border-indigo-500'
           }`}
         >
           {isCompleted && <Checkmark />}
@@ -65,17 +67,19 @@ export default function HabitCard({
         <div className="flex-1 min-w-0">
           <p
             className={`text-sm font-medium truncate ${
-              isCompleted ? 'text-gray-500 line-through' : 'text-gray-100'
+              isCompleted ? 'text-gray-600 line-through' : 'text-gray-100'
             }`}
           >
             {habit.name}
           </p>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className={`text-xs px-1.5 py-0.5 rounded ${colorClass}`}>
-              {habit.category}
-            </span>
+            {habit.category && (
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-md font-medium ${colorClass}`}>
+                {habit.category}
+              </span>
+            )}
             {streaks.current > 0 && (
-              <span className="flex items-center gap-0.5 text-xs text-orange-400">
+              <span className="flex items-center gap-0.5 text-[11px] text-orange-400">
                 <FireIcon className="w-3 h-3" />
                 {streaks.current}d
               </span>
@@ -88,33 +92,33 @@ export default function HabitCard({
           <button
             onClick={() => setShowHeatmap((v) => !v)}
             title="Show 30-day history"
-            className="p-1.5 text-gray-600 hover:text-gray-400 transition-colors"
+            className="p-1.5 text-gray-700 hover:text-gray-400 transition-colors rounded-md hover:bg-gray-800"
           >
             {showHeatmap ? (
-              <ChevronUpIcon className="w-4 h-4" />
+              <ChevronUpIcon className="w-3.5 h-3.5" />
             ) : (
-              <ChevronDownIcon className="w-4 h-4" />
+              <ChevronDownIcon className="w-3.5 h-3.5" />
             )}
           </button>
           <button
             onClick={handleDelete}
             disabled={deleting}
             title="Delete habit"
-            className="p-1.5 text-gray-600 hover:text-red-400 transition-colors disabled:opacity-40"
+            className="p-1.5 text-gray-700 hover:text-red-400 transition-colors rounded-md hover:bg-gray-800 disabled:opacity-40"
           >
-            <TrashIcon className="w-4 h-4" />
+            <TrashIcon className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Streak row */}
       {(streaks.current > 0 || streaks.longest > 0) && (
-        <div className="flex gap-4 mt-2 pl-9">
-          <span className="text-xs text-gray-600">
+        <div className="flex gap-4 mt-2 pl-8">
+          <span className="text-[11px] text-gray-600">
             Current{' '}
             <span className="text-orange-400 font-medium">{streaks.current}d</span>
           </span>
-          <span className="text-xs text-gray-600">
+          <span className="text-[11px] text-gray-600">
             Longest{' '}
             <span className="text-indigo-400 font-medium">{streaks.longest}d</span>
           </span>
@@ -123,7 +127,7 @@ export default function HabitCard({
 
       {/* Heatmap */}
       {showHeatmap && (
-        <div className="pl-9">
+        <div className="pl-8">
           <HeatmapCalendar
             habitId={habit.id}
             logs={logs}

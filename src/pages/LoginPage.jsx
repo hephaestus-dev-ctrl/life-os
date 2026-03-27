@@ -25,43 +25,49 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
       <div className="w-full max-w-sm">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-indigo-400 tracking-tight">Life OS</h1>
+          <h1 className="gradient-text text-3xl font-bold tracking-tight">Life OS</h1>
           <p className="text-gray-500 mt-2 text-sm">Your personal life management system</p>
         </div>
 
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-8 shadow-2xl">
-          <h2 className="text-xl font-semibold text-gray-100 mb-6">
+        {/* Card */}
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-8">
+          <h2 className="text-[18px] font-semibold text-gray-100 mb-6">
             {mode === 'login' ? 'Welcome back' : 'Create account'}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                Email
+              </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-gray-100 placeholder-gray-700 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600/30"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-[0.04em] mb-1.5">
+                Password
+              </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-gray-100 placeholder-gray-700 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600/30"
                 placeholder="••••••••"
               />
             </div>
 
             {error && (
-              <p className="text-red-400 text-sm bg-red-950 border border-red-800 rounded-lg px-3 py-2">
+              <p className="text-red-400 text-sm bg-red-950/50 border border-red-900/60 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
@@ -69,13 +75,13 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors"
+              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg mt-2"
             >
-              {loading ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Sign up'}
+              {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Sign up'}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className="text-center text-sm text-gray-600 mt-6">
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button
               onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null) }}

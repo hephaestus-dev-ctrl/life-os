@@ -24,52 +24,65 @@ export default function Sidebar({ session }) {
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-800">
+      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
         {!collapsed && (
-          <span className="font-bold text-indigo-400 text-lg tracking-tight">Life OS</span>
+          <span className="gradient-text font-bold text-[18px] tracking-tight select-none">
+            Life OS
+          </span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="ml-auto p-1 rounded-md hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+          className={`p-1.5 rounded-md text-gray-600 hover:bg-gray-800 hover:text-gray-300 transition-colors ${
+            collapsed ? 'mx-auto' : 'ml-auto'
+          }`}
         >
           {collapsed ? (
-            <ChevronRightIcon className="w-5 h-5" />
+            <ChevronRightIcon className="w-4 h-4" />
           ) : (
-            <ChevronLeftIcon className="w-5 h-5" />
+            <ChevronLeftIcon className="w-4 h-4" />
           )}
         </button>
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(({ label, path, icon: Icon }) => (
           <NavLink
             key={path}
             to={path}
+            end={path === '/'}
+            title={collapsed ? label : undefined}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
-                isActive
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-700 hover:text-gray-100'
-              }`
+              isActive
+                ? `nav-active flex items-center gap-3 py-2 rounded-lg text-sm font-medium ${
+                    collapsed ? 'justify-center px-3' : 'pr-3'
+                  }`
+                : `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-800 hover:text-gray-100 transition-colors ${
+                    collapsed ? 'justify-center' : ''
+                  }`
             }
           >
-            <Icon className="w-5 h-5 flex-shrink-0" />
+            <Icon className="w-4 h-4 flex-shrink-0" />
             {!collapsed && <span>{label}</span>}
           </NavLink>
         ))}
       </nav>
 
       {/* User + logout */}
-      <div className="p-2 border-t border-gray-800 space-y-1">
+      <div className="px-2 py-3 space-y-0.5 border-t border-gray-800">
         {!collapsed && session?.user?.email && (
-          <p className="px-3 py-1 text-xs text-gray-500 truncate">{session.user.email}</p>
+          <p className="px-3 py-1 text-xs text-gray-700 truncate">
+            {session.user.email}
+          </p>
         )}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-700 hover:text-red-400 transition-colors"
+          title={collapsed ? 'Log out' : undefined}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-800 hover:text-red-400 transition-colors ${
+            collapsed ? 'justify-center' : ''
+          }`}
         >
-          <ArrowRightStartOnRectangleIcon className="w-5 h-5 flex-shrink-0" />
+          <ArrowRightStartOnRectangleIcon className="w-4 h-4 flex-shrink-0" />
           {!collapsed && <span>Log out</span>}
         </button>
       </div>

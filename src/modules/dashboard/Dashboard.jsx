@@ -64,7 +64,6 @@ function useDashboardSummary(userId) {
         supabase.from('chore_logs').select('chore_id, completed_date').eq('user_id', userId).gte('completed_date', monthStart),
         supabase.from('journal_entries').select('id').eq('user_id', userId).eq('entry_date', today).maybeSingle(),
         supabase.from('one_on_one_items').select('id, question').eq('user_id', userId).eq('status', 'pending').order('created_at', { ascending: false }),
-        // meeting_topics — new table; errors gracefully if migration not yet run
         supabase.from('meeting_topics').select('id, content').eq('user_id', userId).eq('status', 'pending').eq('archived', false).order('created_at', { ascending: false }),
         supabase.from('books').select('title').eq('user_id', userId).eq('status', 'reading').order('created_at', { ascending: false }).limit(1),
         supabase.from('books').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'finished'),
@@ -91,7 +90,6 @@ function useDashboardSummary(userId) {
         return !choreLogs.some((l) => l.chore_id === c.id && l.completed_date >= periodStart)
       }).length
 
-      // Chores that are specifically "due today" for the attention card
       const choresToday = allChores.filter((c) => {
         const periodStart = c.cadence === 'daily' ? today : c.cadence === 'weekly' ? weekStart : monthStart
         const done = choreLogs.some((l) => l.chore_id === c.id && l.completed_date >= periodStart)
@@ -106,7 +104,7 @@ function useDashboardSummary(userId) {
       // ── Journal ──
       const hasJournalToday = !journalRes.error && journalRes.data !== null
 
-      // ── Meetings — combine legacy one_on_one_items with new meeting_topics ──
+      // ── Meetings ──
       const pendingTopics = [
         ...(oneOnOneRes.data  ?? []).map((i) => ({ id: i.id, text: i.question })),
         ...(meetingTopicsRes.data ?? []).map((i) => ({ id: i.id, text: i.content })),
@@ -132,40 +130,56 @@ function useDashboardSummary(userId) {
   return summary
 }
 
-// ── Stat card (always visible) ───────────────────────────────
+// ── Stat card ─────────────────────────────────────────────────
 
-function StatCard({ to, label, value, sub, alert }) {
+function StatCard({ to, label, value, sub, alert, accentClass }) {
   return (
     <Link
       to={to}
-      className={`flex flex-col gap-1 border rounded-xl px-4 py-3 transition-colors ${
+      className={`flex flex-col gap-1 border rounded-xl px-4 py-3 transition-all hover:-translate-y-px ${accentClass} ${
         alert
-          ? 'bg-red-950/40 border-red-900/60 hover:bg-red-950/60'
+          ? 'bg-red-950/30 border-red-900/50 hover:border-red-800/80'
           : 'bg-gray-900 border-gray-800 hover:border-gray-700'
       }`}
     >
-      <p className={`text-xs font-medium truncate ${alert ? 'text-red-400' : 'text-gray-500'}`}>{label}</p>
-      <p className={`text-2xl font-bold leading-none ${alert ? 'text-red-300' : 'text-gray-100'}`}>{value}</p>
-      {sub && <p className={`text-xs truncate ${alert ? 'text-red-500/70' : 'text-gray-600'}`}>{sub}</p>}
+      <p className={`text-[11px] font-medium uppercase tracking-[0.06em] truncate ${
+        alert ? 'text-red-400' : 'text-gray-500'
+      }`}>
+        {label}
+      </p>
+      <p className={`text-[28px] font-bold leading-none ${
+        alert ? 'text-red-300' : 'text-gray-100'
+      }`}>
+        {value}
+      </p>
+      {sub && (
+        <p className={`text-xs truncate mt-0.5 ${
+          alert ? 'text-red-500/70' : 'text-gray-600'
+        }`}>
+          {sub}
+        </p>
+      )}
     </Link>
   )
 }
 
-// ── Attention card ───────────────────────────────────────────
+// ── Attention card ────────────────────────────────────────────
 
 function AttentionCard({ to, label, accentClass, children }) {
   return (
     <Link
       to={to}
-      className="block bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-indigo-700 transition-colors"
+      className="block bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 hover:-translate-y-px transition-all"
     >
-      <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${accentClass}`}>{label}</p>
+      <p className={`text-[11px] font-semibold uppercase tracking-[0.06em] mb-3 ${accentClass}`}>
+        {label}
+      </p>
       {children}
     </Link>
   )
 }
 
-// ── Main component ───────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────
 
 export default function Dashboard({ session }) {
   const s = useDashboardSummary(session?.user?.id)
@@ -174,27 +188,32 @@ export default function Dashboard({ session }) {
     weekday: 'long', month: 'long', day: 'numeric',
   })
 
+  const userName = session?.user?.email
+    ? session.user.email.split('@')[0]
+    : null
+
   return (
     <div className="max-w-4xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-100">
-          {session?.user?.email ? `Hey, ${session.user.email.split('@')[0]}` : 'Dashboard'}
+        <h1 className="text-[28px] font-semibold text-gray-100 leading-tight">
+          {userName ? `Hey, ${userName}` : 'Dashboard'}
         </h1>
         <p className="text-gray-500 mt-1 text-sm">{todayFormatted}</p>
       </div>
 
       {s === null ? (
         <div className="flex items-center justify-center h-48">
-          <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <>
-          {/* ── TOP ROW: Always-visible stat cards ── */}
+          {/* ── Stat cards ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10">
             <StatCard
               to="/habits"
               label="Habits today"
+              accentClass="stat-border-purple"
               value={`${s.habitCompleted}/${s.habitTotal}`}
               sub={
                 s.habitTotal === 0 ? 'none tracked'
@@ -205,12 +224,14 @@ export default function Dashboard({ session }) {
             <StatCard
               to="/todo"
               label="Due today"
+              accentClass="stat-border-amber"
               value={s.dueTodayTodos.length}
               sub={s.dueTodayTodos.length === 1 ? '1 task' : `${s.dueTodayTodos.length} tasks`}
             />
             <StatCard
               to="/todo"
               label="Overdue"
+              accentClass="stat-border-red"
               value={s.overdueTodos.length}
               sub={s.overdueTodos.length > 0 ? 'needs attention' : 'all clear'}
               alert={s.overdueTodos.length > 0}
@@ -218,12 +239,14 @@ export default function Dashboard({ session }) {
             <StatCard
               to="/chores"
               label="Chores pending"
+              accentClass="stat-border-teal"
               value={s.choresIncomplete}
               sub="this period"
             />
             <StatCard
               to="/books"
               label="Reading"
+              accentClass="stat-border-blue"
               value={s.currentlyReading ? '📖' : '—'}
               sub={
                 s.currentlyReading
@@ -236,20 +259,20 @@ export default function Dashboard({ session }) {
             <StatCard
               to="/books"
               label="Books finished"
+              accentClass="stat-border-emerald"
               value={s.booksFinished}
               sub="total"
             />
           </div>
 
-          {/* ── BOTTOM: Needs Attention agenda ── */}
-          <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4">
+          {/* ── Needs attention ── */}
+          <h2 className="text-[11px] font-semibold text-gray-700 uppercase tracking-[0.06em] mb-4">
             Needs attention today
           </h2>
 
           {(() => {
             const cards = []
 
-            // Habits card — incomplete habit names
             if (s.incompleteHabits.length > 0) {
               cards.push(
                 <AttentionCard key="habits" to="/habits" label="Habits" accentClass="text-indigo-400">
@@ -267,7 +290,6 @@ export default function Dashboard({ session }) {
               )
             }
 
-            // Journal card — only if no entry today
             if (!s.hasJournalToday) {
               cards.push(
                 <AttentionCard key="journal" to="/journal" label="Journal" accentClass="text-amber-400">
@@ -277,7 +299,6 @@ export default function Dashboard({ session }) {
               )
             }
 
-            // To-Do card — overdue + due today titles
             if (s.overdueTodos.length > 0 || s.dueTodayTodos.length > 0) {
               cards.push(
                 <AttentionCard key="todos" to="/todo" label="To-Do" accentClass="text-red-400">
@@ -315,7 +336,6 @@ export default function Dashboard({ session }) {
               )
             }
 
-            // Chores card — chore names due today that are incomplete
             if (s.choresToday.length > 0) {
               cards.push(
                 <AttentionCard key="chores" to="/chores" label="Chores" accentClass="text-purple-400">
@@ -333,7 +353,6 @@ export default function Dashboard({ session }) {
               )
             }
 
-            // Meetings card — pending topics count + most recent topic preview
             if (s.pendingTopics.length > 0) {
               cards.push(
                 <AttentionCard key="meetings" to="/notes" label="Meetings" accentClass="text-teal-400">
@@ -351,11 +370,10 @@ export default function Dashboard({ session }) {
               )
             }
 
-            // All caught up
             if (cards.length === 0) {
               return (
                 <div className="text-center py-14 bg-gray-900/40 border border-gray-800 rounded-2xl">
-                  <CheckCircleIcon className="w-10 h-10 text-green-500 mx-auto mb-3" />
+                  <CheckCircleIcon className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
                   <p className="text-gray-200 font-medium">You're all caught up today</p>
                   <p className="text-gray-600 text-sm mt-1">{todayFormatted}</p>
                 </div>

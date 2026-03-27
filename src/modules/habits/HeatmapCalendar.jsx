@@ -3,7 +3,7 @@ export default function HeatmapCalendar({ habitId, logs, getLast30Days }) {
 
   return (
     <div className="mt-3 pb-1">
-      <p className="text-xs text-gray-600 mb-1.5">Last 30 days</p>
+      <p className="text-[11px] text-gray-600 uppercase tracking-[0.04em] mb-2">Last 30 days</p>
       <div className="flex flex-wrap gap-1">
         {days.map((date) => {
           const done = logs.some(

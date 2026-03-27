@@ -8,8 +8,8 @@ export default function Layout({ session, children }) {
       <Sidebar session={session} />
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 pb-20 md:pb-0 md:ml-0">
-        <div className="max-w-5xl mx-auto p-4 md:p-8">
+      <main className="flex-1 min-w-0 overflow-y-auto pb-20 md:pb-0">
+        <div className="max-w-5xl mx-auto px-4 py-6 md:px-8 md:py-8">
           {children}
         </div>
       </main>
