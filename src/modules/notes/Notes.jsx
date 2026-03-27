@@ -2,16 +2,17 @@ import { useState, useMemo } from 'react'
 import { PlusIcon, MagnifyingGlassIcon, BoltIcon } from '@heroicons/react/24/outline'
 import { useNotes } from './useNotes'
 import NoteCard from './NoteCard'
-import OneOnOneSection from './OneOnOneSection'
+import WorkNotesSection from './WorkNotesSection'
+import MeetingsSection from './MeetingsSection'
 
 const TABS = [
   { key: 'all',      label: 'All Notes' },
   { key: 'thoughts', label: 'Thoughts'  },
   { key: 'work',     label: 'Work'      },
-  { key: '1on1',     label: '1-on-1'   },
 ]
 
-// Quick thought: inline capture, no modal
+// ── Quick thought capture (inline, no modal) ──────────────────
+
 function QuickThought({ onAdd }) {
   const [text,   setText]   = useState('')
   const [saving, setSaving] = useState(false)
@@ -56,63 +57,8 @@ function QuickThought({ onAdd }) {
   )
 }
 
-// Modal for adding a 1-on-1 question
-function AddQuestionModal({ onAdd, onClose }) {
-  const [question, setQuestion] = useState('')
-  const [context,  setContext]  = useState('')
-  const [saving,   setSaving]   = useState(false)
+// ── Add Note Modal ────────────────────────────────────────────
 
-  const handleSave = async () => {
-    const q = question.trim()
-    if (!q) return
-    setSaving(true)
-    await onAdd({ question: q, context: context.trim() })
-    setSaving(false)
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
-        <h2 className="text-lg font-semibold text-gray-100 mb-5">Add Question</h2>
-        <div className="space-y-4">
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Question or topic to raise in your 1-on-1…"
-            rows={3}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-600 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
-            autoFocus
-          />
-          <textarea
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            placeholder="Context or background (optional)…"
-            rows={3}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-600 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
-          />
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleSave}
-            disabled={!question.trim() || saving}
-            className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            {saving ? 'Adding…' : 'Add Question'}
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm font-medium rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Modal for adding a full note (with title, category)
 function AddNoteModal({ onAdd, onClose }) {
   const [title,    setTitle]    = useState('')
   const [content,  setContent]  = useState('')
@@ -147,6 +93,7 @@ function AddNoteModal({ onAdd, onClose }) {
             onChange={(e) => setContent(e.target.value)}
             placeholder="Note content…"
             rows={6}
+            autoFocus
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-600 resize-none focus:outline-none focus:border-indigo-500 transition-colors"
           />
           <div className="flex gap-3">
@@ -188,26 +135,27 @@ function AddNoteModal({ onAdd, onClose }) {
   )
 }
 
+// ── Main Notes component ──────────────────────────────────────
+
 export default function Notes() {
   const {
-    notes, oneOnOneItems, loading,
+    notes, workNotes, meetingTracks, meetingTopics, loading,
     addNote, updateNote, deleteNote,
-    addOneOnOne, toggleOneOnOne, deleteOneOnOne,
+    addWorkNote, updateWorkNote, deleteWorkNote,
+    addMeetingTrack, deleteMeetingTrack,
+    addMeetingTopic, toggleMeetingTopic, updateMeetingTopic, deleteMeetingTopic, archiveMeetingWeek,
   } = useNotes()
 
-  const [tab,      setTab]      = useState('all')
-  const [search,   setSearch]   = useState('')
+  const [tab,       setTab]       = useState('all')
+  const [search,    setSearch]    = useState('')
   const [showModal, setShowModal] = useState(false)
-  const [showAddQuestionModal, setShowAddQuestionModal] = useState(false)
 
-  const pendingOneOnOne = oneOnOneItems.filter((i) => i.status === 'pending').length
+  const pendingMeetingCount = meetingTopics.filter((t) => !t.archived && t.status === 'pending').length
 
-  // Filter notes by tab
+  // Filter notes by tab (excludes work tab — that uses workNotes table)
   const tabNotes = useMemo(() => {
-    let list = notes
-    if (tab === 'thoughts') list = notes.filter((n) => n.category === 'thought')
-    if (tab === 'work')     list = notes.filter((n) => n.category === 'work')
-    return list
+    if (tab === 'thoughts') return notes.filter((n) => n.category === 'thought')
+    return notes
   }, [notes, tab])
 
   // Apply search
@@ -231,27 +179,21 @@ export default function Notes() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className={tab === 'work' ? 'max-w-4xl' : 'max-w-2xl'}>
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Notes</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {notes.length} {notes.length === 1 ? 'note' : 'notes'}
-            {pendingOneOnOne > 0 && (
-              <span className="ml-2 text-amber-400">· {pendingOneOnOne} pending 1-on-1</span>
+            {pendingMeetingCount > 0 && (
+              <span className="ml-2 text-amber-400">
+                · {pendingMeetingCount} pending meeting topic{pendingMeetingCount !== 1 ? 's' : ''}
+              </span>
             )}
           </p>
         </div>
-        {tab === '1on1' ? (
-          <button
-            onClick={() => setShowAddQuestionModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add Question
-          </button>
-        ) : (
+        {tab !== 'work' && (
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
@@ -275,25 +217,42 @@ export default function Notes() {
             }`}
           >
             {label}
-            {key === '1on1' && pendingOneOnOne > 0 && (
+            {key === 'work' && pendingMeetingCount > 0 && (
               <span className="ml-1.5 text-xs bg-amber-500 text-black rounded-full px-1.5 py-0.5 font-bold">
-                {pendingOneOnOne}
+                {pendingMeetingCount}
               </span>
             )}
           </button>
         ))}
       </div>
 
-      {/* 1-on-1 tab */}
-      {tab === '1on1' ? (
-        <OneOnOneSection
-          items={oneOnOneItems}
-          onToggle={toggleOneOnOne}
-          onDelete={deleteOneOnOne}
-        />
+      {/* ── Work tab: two-section workspace ── */}
+      {tab === 'work' ? (
+        <div className="space-y-10">
+          <WorkNotesSection
+            notes={workNotes}
+            onAdd={addWorkNote}
+            onUpdate={updateWorkNote}
+            onDelete={deleteWorkNote}
+          />
+          <div className="border-t border-gray-800 pt-8">
+            <MeetingsSection
+              tracks={meetingTracks}
+              topics={meetingTopics}
+              onAddTrack={addMeetingTrack}
+              onDeleteTrack={deleteMeetingTrack}
+              onAddTopic={addMeetingTopic}
+              onToggle={toggleMeetingTopic}
+              onDelete={deleteMeetingTopic}
+              onUpdate={updateMeetingTopic}
+              onArchive={archiveMeetingWeek}
+            />
+          </div>
+        </div>
       ) : (
+        /* ── All Notes / Thoughts tabs ── */
         <>
-          {/* Quick thought capture — only on All & Thoughts tabs */}
+          {/* Quick thought capture — All Notes and Thoughts tabs */}
           {(tab === 'all' || tab === 'thoughts') && (
             <QuickThought onAdd={addNote} />
           )}
@@ -337,7 +296,7 @@ export default function Notes() {
               </p>
               {!search && (
                 <button
-                  onClick={() => tab === 'thoughts' ? null : setShowModal(true)}
+                  onClick={tab === 'thoughts' ? undefined : () => setShowModal(true)}
                   className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
                 >
                   {tab === 'thoughts'
@@ -352,10 +311,6 @@ export default function Notes() {
 
       {showModal && (
         <AddNoteModal onAdd={addNote} onClose={() => setShowModal(false)} />
-      )}
-
-      {showAddQuestionModal && (
-        <AddQuestionModal onAdd={addOneOnOne} onClose={() => setShowAddQuestionModal(false)} />
       )}
     </div>
   )

@@ -1,22 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { NAV_ITEMS } from '../../config/navItems'
 import { supabase } from '../../lib/supabase'
+import { CheckCircleIcon } from '@heroicons/react/24/outline'
 
-const MODULE_DESCRIPTIONS = {
-  '/habits': 'Track your daily habits and streaks',
-  '/todo':   'Manage your tasks and to-dos',
-  '/chores': 'Keep on top of household chores',
-  '/journal':  'Daily reflections and entries',
-  '/notes':    'Capture ideas and notes',
-  '/books':    'Your reading list and reviews',
-  '/workouts': 'Log workouts and track fitness',
+// ── Date helpers ─────────────────────────────────────────────
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
 }
 
-// Monday of the current week
 function weekStartStr() {
-  const d = new Date()
-  const day = d.getDay()
+  const d   = new Date()
+  const day  = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
   d.setHours(0, 0, 0, 0)
@@ -28,14 +23,28 @@ function monthStartStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 }
 
+// Mon=0 … Sun=6
+function dayNameToIndex(name) {
+  return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].indexOf(name)
+}
+
+function todayDayIndex() {
+  const d = new Date().getDay() // 0=Sun
+  return d === 0 ? 6 : d - 1
+}
+
+// ── Data hook ────────────────────────────────────────────────
+
 function useDashboardSummary(userId) {
   const [summary, setSummary] = useState(null)
 
   useEffect(() => {
     if (!userId) return
-    const today      = new Date().toISOString().slice(0, 10)
+
+    const today      = todayStr()
     const weekStart  = weekStartStr()
     const monthStart = monthStartStr()
+    const todayIdx   = todayDayIndex()
 
     async function load() {
       const [
@@ -44,68 +53,76 @@ function useDashboardSummary(userId) {
         choresRes, choreLogsRes,
         journalRes,
         oneOnOneRes,
-        thoughtRes,
+        meetingTopicsRes,
         readingRes,
         finishedRes,
-        lastWorkoutRes,
       ] = await Promise.all([
-        supabase.from('habits').select('id').eq('user_id', userId).is('routine_type', null),
+        supabase.from('habits').select('id, name').eq('user_id', userId).is('routine_type', null),
         supabase.from('habit_logs').select('habit_id').eq('user_id', userId).eq('completed_date', today),
-        supabase.from('todos').select('id, due_date, status').eq('user_id', userId).eq('status', 'open'),
-        supabase.from('chores').select('id, cadence, assigned_day').eq('user_id', userId),
-        supabase.from('chore_logs').select('chore_id, completed_date').eq('user_id', userId),
+        supabase.from('todos').select('id, title, due_date').eq('user_id', userId).eq('status', 'open'),
+        supabase.from('chores').select('id, title, cadence, assigned_day').eq('user_id', userId),
+        supabase.from('chore_logs').select('chore_id, completed_date').eq('user_id', userId).gte('completed_date', monthStart),
         supabase.from('journal_entries').select('id').eq('user_id', userId).eq('entry_date', today).maybeSingle(),
-        supabase.from('one_on_one_items').select('id').eq('user_id', userId).eq('status', 'pending'),
-        supabase.from('notes').select('content, created_at').eq('user_id', userId).eq('category', 'thought').order('created_at', { ascending: false }).limit(1),
-        // Books: currently reading
+        supabase.from('one_on_one_items').select('id, question').eq('user_id', userId).eq('status', 'pending').order('created_at', { ascending: false }),
+        // meeting_topics — new table; errors gracefully if migration not yet run
+        supabase.from('meeting_topics').select('id, content').eq('user_id', userId).eq('status', 'pending').eq('archived', false).order('created_at', { ascending: false }),
         supabase.from('books').select('title').eq('user_id', userId).eq('status', 'reading').order('created_at', { ascending: false }).limit(1),
-        // Books: finished count
         supabase.from('books').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'finished'),
-        // Workouts: last session
-        supabase.from('workouts').select('workout_date, workout_type').eq('user_id', userId).order('workout_date', { ascending: false }).limit(1),
       ])
 
-      // Habits
-      const habitTotal     = habitsRes.data?.length ?? 0
-      const habitCompleted = habitLogsRes.data?.length ?? 0
+      // ── Habits ──
+      const habits            = habitsRes.data ?? []
+      const completedHabitIds = new Set((habitLogsRes.data ?? []).map((l) => l.habit_id))
+      const habitTotal        = habits.length
+      const habitCompleted    = habits.filter((h) => completedHabitIds.has(h.id)).length
+      const incompleteHabits  = habits.filter((h) => !completedHabitIds.has(h.id))
 
-      // Todos
-      const openTodos    = todosRes.data ?? []
-      const todosDueToday = openTodos.filter((t) => t.due_date === today).length
-      const todosOverdue  = openTodos.filter((t) => t.due_date && t.due_date < today).length
+      // ── Todos ──
+      const openTodos     = todosRes.data ?? []
+      const overdueTodos  = openTodos.filter((t) => t.due_date && t.due_date < today)
+      const dueTodayTodos = openTodos.filter((t) => t.due_date === today)
 
-      // Chores — count incomplete for current period
+      // ── Chores ──
       const choreLogs = choreLogsRes.data ?? []
-      const choresIncomplete = (choresRes.data ?? []).filter((c) => {
-        const periodStart = c.cadence === 'daily'   ? today
-                          : c.cadence === 'weekly'  ? weekStart
-                          : monthStart
-        return !choreLogs.some(
-          (l) => l.chore_id === c.id && l.completed_date >= periodStart
-        )
+      const allChores = choresRes.data ?? []
+
+      const choresIncomplete = allChores.filter((c) => {
+        const periodStart = c.cadence === 'daily' ? today : c.cadence === 'weekly' ? weekStart : monthStart
+        return !choreLogs.some((l) => l.chore_id === c.id && l.completed_date >= periodStart)
       }).length
 
+      // Chores that are specifically "due today" for the attention card
+      const choresToday = allChores.filter((c) => {
+        const periodStart = c.cadence === 'daily' ? today : c.cadence === 'weekly' ? weekStart : monthStart
+        const done = choreLogs.some((l) => l.chore_id === c.id && l.completed_date >= periodStart)
+        if (done) return false
+        if (c.cadence === 'daily') return true
+        if (c.cadence === 'weekly' && c.assigned_day) {
+          return dayNameToIndex(c.assigned_day) === todayIdx
+        }
+        return false
+      })
+
+      // ── Journal ──
       const hasJournalToday = !journalRes.error && journalRes.data !== null
-      const pendingOneOnOne = oneOnOneRes.data?.length ?? 0
-      const latestThought   = thoughtRes.data?.[0]?.content ?? null
 
-      // Books
-      const currentlyReading  = readingRes.data?.[0]?.title ?? null
-      const booksFinished     = finishedRes.count ?? 0
+      // ── Meetings — combine legacy one_on_one_items with new meeting_topics ──
+      const pendingTopics = [
+        ...(oneOnOneRes.data  ?? []).map((i) => ({ id: i.id, text: i.question })),
+        ...(meetingTopicsRes.data ?? []).map((i) => ({ id: i.id, text: i.content })),
+      ]
 
-      // Workouts
-      const lastWorkout = lastWorkoutRes.data?.[0] ?? null
+      // ── Books ──
+      const currentlyReading = readingRes.data?.[0]?.title ?? null
+      const booksFinished    = finishedRes.count ?? 0
 
       setSummary({
-        habitTotal, habitCompleted,
-        todosDueToday, todosOverdue,
-        choresIncomplete,
+        habitTotal, habitCompleted, incompleteHabits,
+        overdueTodos, dueTodayTodos,
+        choresIncomplete, choresToday,
         hasJournalToday,
-        pendingOneOnOne,
-        latestThought,
-        currentlyReading,
-        booksFinished,
-        lastWorkout,
+        pendingTopics,
+        currentlyReading, booksFinished,
       })
     }
 
@@ -115,223 +132,244 @@ function useDashboardSummary(userId) {
   return summary
 }
 
-function StatCard({ to, label, value, sub, accent }) {
-  const accentMap = {
-    indigo: 'bg-indigo-950 border-indigo-800 hover:bg-indigo-900',
-    red:    'bg-red-950/40 border-red-900/60 hover:bg-red-950/60',
-    amber:  'bg-amber-950/40 border-amber-900/60 hover:bg-amber-950/60',
-    purple: 'bg-purple-950/40 border-purple-900/60 hover:bg-purple-950/60',
-  }
-  const valMap = {
-    indigo: 'text-white',
-    red:    'text-red-300',
-    amber:  'text-amber-300',
-    purple: 'text-purple-300',
-  }
-  const labelMap = {
-    indigo: 'text-indigo-300',
-    red:    'text-red-400',
-    amber:  'text-amber-400',
-    purple: 'text-purple-400',
-  }
+// ── Stat card (always visible) ───────────────────────────────
 
+function StatCard({ to, label, value, sub, alert }) {
   return (
     <Link
       to={to}
-      className={`flex items-center justify-between border rounded-xl px-5 py-4 transition-colors ${accentMap[accent]}`}
+      className={`flex flex-col gap-1 border rounded-xl px-4 py-3 transition-colors ${
+        alert
+          ? 'bg-red-950/40 border-red-900/60 hover:bg-red-950/60'
+          : 'bg-gray-900 border-gray-800 hover:border-gray-700'
+      }`}
     >
-      <div>
-        <p className={`text-sm font-medium ${labelMap[accent]}`}>{label}</p>
-        {sub && <p className={`text-xs mt-0.5 ${labelMap[accent]} opacity-70`}>{sub}</p>}
-      </div>
-      <p className={`text-2xl font-bold ${valMap[accent]}`}>{value}</p>
+      <p className={`text-xs font-medium truncate ${alert ? 'text-red-400' : 'text-gray-500'}`}>{label}</p>
+      <p className={`text-2xl font-bold leading-none ${alert ? 'text-red-300' : 'text-gray-100'}`}>{value}</p>
+      {sub && <p className={`text-xs truncate ${alert ? 'text-red-500/70' : 'text-gray-600'}`}>{sub}</p>}
     </Link>
   )
 }
 
+// ── Attention card ───────────────────────────────────────────
+
+function AttentionCard({ to, label, accentClass, children }) {
+  return (
+    <Link
+      to={to}
+      className="block bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-indigo-700 transition-colors"
+    >
+      <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${accentClass}`}>{label}</p>
+      {children}
+    </Link>
+  )
+}
+
+// ── Main component ───────────────────────────────────────────
+
 export default function Dashboard({ session }) {
-  const moduleItems = NAV_ITEMS.filter((item) => item.path !== '/')
   const s = useDashboardSummary(session?.user?.id)
 
-  const habitAllDone = s && s.habitTotal > 0 && s.habitCompleted === s.habitTotal
+  const todayFormatted = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  })
 
   return (
-    <div>
+    <div className="max-w-4xl">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-100">
-          Welcome back
-          {session?.user?.email ? `, ${session.user.email.split('@')[0]}` : ''}
+          {session?.user?.email ? `Hey, ${session.user.email.split('@')[0]}` : 'Dashboard'}
         </h1>
-        <p className="text-gray-500 mt-1 text-sm">Here's your Life OS overview</p>
+        <p className="text-gray-500 mt-1 text-sm">{todayFormatted}</p>
       </div>
 
-      {/* At-a-glance summary cards */}
-      {s !== null && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-          {/* Habits */}
-          {s.habitTotal > 0 && (
+      {s === null ? (
+        <div className="flex items-center justify-center h-48">
+          <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          {/* ── TOP ROW: Always-visible stat cards ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10">
             <StatCard
               to="/habits"
               label="Habits today"
               value={`${s.habitCompleted}/${s.habitTotal}`}
-              sub={habitAllDone ? 'All done!' : `${s.habitTotal - s.habitCompleted} remaining`}
-              accent="indigo"
+              sub={
+                s.habitTotal === 0 ? 'none tracked'
+                : s.habitCompleted === s.habitTotal ? 'All done!'
+                : `${s.habitTotal - s.habitCompleted} remaining`
+              }
             />
-          )}
-
-          {/* Tasks due today */}
-          {(s.todosDueToday > 0 || s.todosOverdue > 0) && (
             <StatCard
               to="/todo"
-              label="Tasks due today"
-              value={s.todosDueToday}
-              sub={s.todosOverdue > 0 ? `${s.todosOverdue} overdue` : 'on schedule'}
-              accent={s.todosOverdue > 0 ? 'red' : 'amber'}
+              label="Due today"
+              value={s.dueTodayTodos.length}
+              sub={s.dueTodayTodos.length === 1 ? '1 task' : `${s.dueTodayTodos.length} tasks`}
             />
-          )}
-
-          {/* Overdue tasks — separate card when significant */}
-          {s.todosOverdue > 0 && (
             <StatCard
               to="/todo"
-              label="Overdue tasks"
-              value={s.todosOverdue}
-              sub="needs attention"
-              accent="red"
+              label="Overdue"
+              value={s.overdueTodos.length}
+              sub={s.overdueTodos.length > 0 ? 'needs attention' : 'all clear'}
+              alert={s.overdueTodos.length > 0}
             />
-          )}
-
-          {/* Chores incomplete */}
-          {s.choresIncomplete > 0 && (
             <StatCard
               to="/chores"
               label="Chores pending"
               value={s.choresIncomplete}
               sub="this period"
-              accent="purple"
             />
-          )}
-
-          {/* Journal today */}
-          {!s.hasJournalToday && (
-            <StatCard
-              to="/journal"
-              label="Journal"
-              value="—"
-              sub="No entry yet today"
-              accent="amber"
-            />
-          )}
-
-          {/* Pending 1-on-1 questions */}
-          {s.pendingOneOnOne > 0 && (
-            <StatCard
-              to="/notes"
-              label="1-on-1 queue"
-              value={s.pendingOneOnOne}
-              sub={`pending question${s.pendingOneOnOne !== 1 ? 's' : ''}`}
-              accent="purple"
-            />
-          )}
-
-          {/* Currently reading */}
-          {s.currentlyReading && (
             <StatCard
               to="/books"
-              label="Currently reading"
-              value="📖"
-              sub={s.currentlyReading}
-              accent="indigo"
+              label="Reading"
+              value={s.currentlyReading ? '📖' : '—'}
+              sub={
+                s.currentlyReading
+                  ? s.currentlyReading.length > 28
+                    ? s.currentlyReading.slice(0, 28) + '…'
+                    : s.currentlyReading
+                  : 'nothing yet'
+              }
             />
-          )}
-
-          {/* Books finished */}
-          {s.booksFinished > 0 && (
             <StatCard
               to="/books"
               label="Books finished"
               value={s.booksFinished}
               sub="total"
-              accent="indigo"
             />
-          )}
+          </div>
 
-          {/* Last workout */}
-          {s.lastWorkout && (
-            <StatCard
-              to="/workouts"
-              label="Last workout"
-              value={s.lastWorkout.workout_type === 'tonal' ? '💪' : s.lastWorkout.workout_type === 'swedish_ladder' ? '🪜' : '🏋️'}
-              sub={`${s.lastWorkout.workout_date} · ${
-                s.lastWorkout.workout_type === 'tonal' ? 'Tonal'
-                : s.lastWorkout.workout_type === 'swedish_ladder' ? 'Swedish Ladder'
-                : s.lastWorkout.workout_type === 'cardio' ? 'Cardio'
-                : 'Other'
-              }`}
-              accent="amber"
-            />
-          )}
-        </div>
+          {/* ── BOTTOM: Needs Attention agenda ── */}
+          <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4">
+            Needs attention today
+          </h2>
+
+          {(() => {
+            const cards = []
+
+            // Habits card — incomplete habit names
+            if (s.incompleteHabits.length > 0) {
+              cards.push(
+                <AttentionCard key="habits" to="/habits" label="Habits" accentClass="text-indigo-400">
+                  <div className="flex flex-wrap gap-1.5">
+                    {s.incompleteHabits.map((h) => (
+                      <span
+                        key={h.id}
+                        className="text-xs bg-gray-800 border border-gray-700 text-gray-300 px-2.5 py-1 rounded-full"
+                      >
+                        {h.name}
+                      </span>
+                    ))}
+                  </div>
+                </AttentionCard>
+              )
+            }
+
+            // Journal card — only if no entry today
+            if (!s.hasJournalToday) {
+              cards.push(
+                <AttentionCard key="journal" to="/journal" label="Journal" accentClass="text-amber-400">
+                  <p className="text-sm text-gray-300">{todayFormatted}</p>
+                  <p className="text-xs text-gray-600 mt-1">Today's entry isn't written yet →</p>
+                </AttentionCard>
+              )
+            }
+
+            // To-Do card — overdue + due today titles
+            if (s.overdueTodos.length > 0 || s.dueTodayTodos.length > 0) {
+              cards.push(
+                <AttentionCard key="todos" to="/todo" label="To-Do" accentClass="text-red-400">
+                  {s.overdueTodos.length > 0 && (
+                    <div className={s.dueTodayTodos.length > 0 ? 'mb-3' : ''}>
+                      <p className="text-xs text-red-500 font-medium mb-1.5">
+                        Overdue ({s.overdueTodos.length})
+                      </p>
+                      <div className="space-y-1">
+                        {s.overdueTodos.slice(0, 4).map((t) => (
+                          <p key={t.id} className="text-sm text-gray-300 truncate">— {t.title}</p>
+                        ))}
+                        {s.overdueTodos.length > 4 && (
+                          <p className="text-xs text-gray-600">+{s.overdueTodos.length - 4} more</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {s.dueTodayTodos.length > 0 && (
+                    <div>
+                      <p className="text-xs text-amber-400 font-medium mb-1.5">
+                        Due today ({s.dueTodayTodos.length})
+                      </p>
+                      <div className="space-y-1">
+                        {s.dueTodayTodos.slice(0, 4).map((t) => (
+                          <p key={t.id} className="text-sm text-gray-300 truncate">— {t.title}</p>
+                        ))}
+                        {s.dueTodayTodos.length > 4 && (
+                          <p className="text-xs text-gray-600">+{s.dueTodayTodos.length - 4} more</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </AttentionCard>
+              )
+            }
+
+            // Chores card — chore names due today that are incomplete
+            if (s.choresToday.length > 0) {
+              cards.push(
+                <AttentionCard key="chores" to="/chores" label="Chores" accentClass="text-purple-400">
+                  <div className="flex flex-wrap gap-1.5">
+                    {s.choresToday.map((c) => (
+                      <span
+                        key={c.id}
+                        className="text-xs bg-gray-800 border border-gray-700 text-gray-300 px-2.5 py-1 rounded-full"
+                      >
+                        {c.title}
+                      </span>
+                    ))}
+                  </div>
+                </AttentionCard>
+              )
+            }
+
+            // Meetings card — pending topics count + most recent topic preview
+            if (s.pendingTopics.length > 0) {
+              cards.push(
+                <AttentionCard key="meetings" to="/notes" label="Meetings" accentClass="text-teal-400">
+                  <p className="text-sm text-gray-300">
+                    {s.pendingTopics.length} pending topic{s.pendingTopics.length !== 1 ? 's' : ''}
+                  </p>
+                  {s.pendingTopics[0] && (
+                    <p className="text-xs text-gray-600 mt-1.5 line-clamp-2">
+                      "{s.pendingTopics[0].text.length > 100
+                        ? s.pendingTopics[0].text.slice(0, 100) + '…'
+                        : s.pendingTopics[0].text}"
+                    </p>
+                  )}
+                </AttentionCard>
+              )
+            }
+
+            // All caught up
+            if (cards.length === 0) {
+              return (
+                <div className="text-center py-14 bg-gray-900/40 border border-gray-800 rounded-2xl">
+                  <CheckCircleIcon className="w-10 h-10 text-green-500 mx-auto mb-3" />
+                  <p className="text-gray-200 font-medium">You're all caught up today</p>
+                  <p className="text-gray-600 text-sm mt-1">{todayFormatted}</p>
+                </div>
+              )
+            }
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {cards}
+              </div>
+            )
+          })()}
+        </>
       )}
-
-      {/* Module cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {moduleItems.map(({ label, path, icon: Icon }) => {
-          let blurb = 'Coming soon →'
-          if (path === '/habits' && s?.habitTotal > 0)
-            blurb = `${s.habitCompleted} of ${s.habitTotal} completed today`
-          if (path === '/todo' && s !== null && (s.todosDueToday > 0 || s.todosOverdue > 0))
-            blurb = s.todosOverdue > 0
-              ? `${s.todosOverdue} overdue · ${s.todosDueToday} due today`
-              : `${s.todosDueToday} due today`
-          if (path === '/chores' && s?.choresIncomplete > 0)
-            blurb = `${s.choresIncomplete} pending this period`
-          if (path === '/journal' && s !== null)
-            blurb = s.hasJournalToday ? "Today's entry saved ✓" : "No entry yet today — write now"
-          if (path === '/notes' && s !== null) {
-            if (s.pendingOneOnOne > 0)
-              blurb = `${s.pendingOneOnOne} pending 1-on-1 question${s.pendingOneOnOne !== 1 ? 's' : ''}`
-            else if (s.latestThought)
-              blurb = `"${s.latestThought.slice(0, 60)}${s.latestThought.length > 60 ? '…' : ''}"`
-          }
-          if (path === '/books' && s !== null) {
-            if (s.currentlyReading)
-              blurb = `Reading: ${s.currentlyReading.slice(0, 50)}${s.currentlyReading.length > 50 ? '…' : ''}`
-            else if (s.booksFinished > 0)
-              blurb = `${s.booksFinished} book${s.booksFinished !== 1 ? 's' : ''} finished`
-            else
-              blurb = 'Add your first book →'
-          }
-          if (path === '/workouts' && s !== null) {
-            if (s.lastWorkout)
-              blurb = `Last session: ${s.lastWorkout.workout_date}`
-            else
-              blurb = 'Log your first workout →'
-          }
-
-          return (
-            <Link
-              key={path}
-              to={path}
-              className="group bg-gray-900 border border-gray-800 rounded-2xl p-6 hover:border-indigo-600 hover:bg-gray-800 transition-all duration-200"
-            >
-              <div className="flex items-start gap-4">
-                <div className="p-2 bg-indigo-950 rounded-xl group-hover:bg-indigo-900 transition-colors">
-                  <Icon className="w-6 h-6 text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-100 group-hover:text-white">{label}</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">{MODULE_DESCRIPTIONS[path]}</p>
-                </div>
-              </div>
-              <div className="mt-4 text-xs text-gray-600 group-hover:text-indigo-400 transition-colors">
-                {blurb}
-              </div>
-            </Link>
-          )
-        })}
-      </div>
     </div>
   )
 }
