@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 
+function typeToCategory(type) {
+  if (type === 'tonal') return 'strength'
+  if (type === 'swedish_ladder') return 'calisthenics'
+  if (type === 'cardio') return 'cardio'
+  if (type === 'flexibility') return 'flexibility'
+  return null
+}
+
 export function useWorkouts() {
   const [userId, setUserId] = useState(null)
   const [templates, setTemplates] = useState([])
@@ -60,19 +68,28 @@ export function useWorkouts() {
   // ---- Templates ----
 
   const createTemplate = async ({ name, type, exercises }) => {
+    const category = typeToCategory(type)
     const { data: tmpl, error } = await supabase
       .from('workout_templates')
-      .insert({ name, type, user_id: userId })
+      .insert({ name, type, workout_category: category, user_id: userId })
       .select()
       .single()
     if (error) return { error }
 
     if (exercises?.length) {
+      const num = (v) => (v != null && v !== '' ? Number(v) : null)
       const rows = exercises.map((ex, i) => ({
         template_id: tmpl.id,
         exercise_name: ex.exercise_name,
-        sets: ex.sets ?? null,
-        reps: ex.reps ?? null,
+        sets: num(ex.sets),
+        reps: num(ex.reps),
+        muscle_group: ex.muscle_group || null,
+        skill_level: ex.skill_level || null,
+        activity_type: ex.activity_type || null,
+        target_distance: num(ex.target_distance),
+        target_duration_secs: num(ex.target_duration_secs),
+        target_pace: ex.target_pace || null,
+        weight_lbs: num(ex.weight_lbs),
         order_index: i,
       }))
       await supabase.from('template_exercises').insert(rows)
@@ -103,15 +120,19 @@ export function useWorkouts() {
     if (error) return { error }
 
     if (exercises?.length) {
+      const num = (v) => (v != null && v !== '' ? Number(v) : null)
       const rows = exercises.map((ex, i) => ({
         session_id: session.id,
         exercise_name: ex.exercise_name,
         planned_sets: ex.planned_sets ?? null,
         planned_reps: ex.planned_reps ?? null,
-        actual_weight_lbs:
-          ex.actual_weight_lbs != null && ex.actual_weight_lbs !== ''
-            ? Number(ex.actual_weight_lbs)
-            : null,
+        planned_weight: num(ex.planned_weight),
+        actual_sets: num(ex.actual_sets),
+        actual_reps: num(ex.actual_reps),
+        actual_weight_lbs: num(ex.actual_weight_lbs),
+        actual_distance: num(ex.actual_distance),
+        actual_duration_secs: num(ex.actual_duration_secs),
+        actual_pace: ex.actual_pace || null,
         notes: ex.notes ?? null,
         order_index: i,
       }))
@@ -175,11 +196,14 @@ export function useWorkouts() {
       .sort((a, b) => new Date(a.date) - new Date(b.date))
   }
 
-  const allExerciseNames = [
-    ...new Set(
-      templates.flatMap((t) => (t.template_exercises ?? []).map((te) => te.exercise_name))
-    ),
-  ].sort()
+  const getTemplateCategory = (templateId) => {
+    const tmpl = templates.find((t) => t.id === templateId)
+    if (!tmpl) return null
+    return tmpl.workout_category || typeToCategory(tmpl.type)
+  }
+
+  const getSessionsByCategory = (category) =>
+    sessions.filter((s) => getTemplateCategory(s.template_id) === category)
 
   return {
     templates,
@@ -194,9 +218,10 @@ export function useWorkouts() {
     deleteSession,
     getSessionExercises,
     getExerciseProgress,
+    getSessionsByCategory,
+    getTemplateCategory,
     advanceStage,
     setStage,
-    allExerciseNames,
     refresh: () => userId && fetchData(userId),
   }
 }

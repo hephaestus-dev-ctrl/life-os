@@ -4,13 +4,11 @@ import { TemplateLibrary } from './TemplateLibrary'
 import { LogSession } from './LogSession'
 import { WorkoutHistory } from './WorkoutHistory'
 import { ProgressTracker } from './ProgressTracker'
-import { SwedishLadder } from './SwedishLadder'
 import {
   ClipboardDocumentListIcon,
   PlusCircleIcon,
   ClockIcon,
   ChartBarIcon,
-  ArrowsUpDownIcon,
 } from '@heroicons/react/24/outline'
 
 const TABS = [
@@ -18,7 +16,6 @@ const TABS = [
   { id: 'log', label: 'Log Session', Icon: PlusCircleIcon },
   { id: 'history', label: 'History', Icon: ClockIcon },
   { id: 'progress', label: 'Progress', Icon: ChartBarIcon },
-  { id: 'ladder', label: 'Sw. Ladder', Icon: ArrowsUpDownIcon },
 ]
 
 export default function Workouts() {
@@ -61,7 +58,6 @@ export default function Workouts() {
       {tab === 'log' && <LogSession {...workouts} onSaved={() => setTab('history')} />}
       {tab === 'history' && <WorkoutHistory {...workouts} />}
       {tab === 'progress' && <ProgressTracker {...workouts} />}
-      {tab === 'ladder' && <SwedishLadder {...workouts} />}
     </div>
   )
 }

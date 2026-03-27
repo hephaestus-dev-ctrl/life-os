@@ -1,40 +1,235 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 
-function parseCSV(text) {
+// ── CSV parser (tonal + swedish_ladder only) ──────────────────
+function parseCSV(text, type) {
   const lines = text.trim().split('\n').filter((l) => l.trim())
   if (lines.length < 2) {
     return { exercises: [], error: 'Need a header row + at least one exercise row.' }
   }
-
   const raw = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/["']/g, ''))
-  const exerciseIdx = raw.findIndex((h) =>
-    ['exercise', 'name', 'movement', 'exercise name', 'move'].some((k) => h.includes(k))
+  const exIdx = raw.findIndex((h) =>
+    ['exercise', 'name', 'movement', 'exercise name'].some((k) => h.includes(k))
   )
   const setsIdx = raw.findIndex((h) => h.includes('set'))
   const repsIdx = raw.findIndex((h) => h.includes('rep'))
+  const muscleIdx = raw.findIndex((h) => h.includes('muscle') || h.includes('group'))
+  const skillIdx = raw.findIndex((h) => h.includes('skill') || h.includes('level'))
 
-  if (exerciseIdx === -1) {
-    return { exercises: [], error: 'Could not find an exercise/name column in the CSV.' }
+  if (exIdx === -1) {
+    return { exercises: [], error: 'Could not find an Exercise/Name column.' }
   }
 
   const exercises = lines
     .slice(1)
     .map((line) => {
       const cols = line.split(',').map((c) => c.trim().replace(/["']/g, ''))
-      return {
-        exercise_name: cols[exerciseIdx] ?? '',
+      const row = {
+        exercise_name: cols[exIdx] ?? '',
         sets: setsIdx >= 0 ? parseInt(cols[setsIdx]) || null : null,
         reps: repsIdx >= 0 ? parseInt(cols[repsIdx]) || null : null,
       }
+      if (type === 'tonal' && muscleIdx >= 0) row.muscle_group = cols[muscleIdx] || ''
+      if (type === 'swedish_ladder' && skillIdx >= 0) row.skill_level = cols[skillIdx] || 'beginner'
+      return row
     })
     .filter((r) => r.exercise_name)
 
   return { exercises, error: null }
 }
 
-const emptyRow = () => ({ exercise_name: '', sets: '', reps: '' })
+// ── Empty row factories per type ──────────────────────────────
+const EMPTY = {
+  tonal: () => ({ exercise_name: '', muscle_group: '', sets: '', reps: '' }),
+  swedish_ladder: () => ({ exercise_name: '', skill_level: 'beginner', sets: '', reps: '' }),
+  cardio: () => ({ exercise_name: 'Running', activity_type: 'Running', target_distance: '', target_duration_secs: '', target_pace: '' }),
+  flexibility: () => ({ exercise_name: '', target_duration_secs: '' }),
+}
 
+// ── Type config ───────────────────────────────────────────────
+const TYPES = [
+  {
+    value: 'tonal',
+    label: 'Tonal',
+    desc: 'Cable machine strength training',
+    active: 'bg-blue-950 border-blue-600 text-blue-300',
+  },
+  {
+    value: 'swedish_ladder',
+    label: 'Swedish Ladder',
+    desc: 'Calisthenics bodyweight progression',
+    active: 'bg-purple-950 border-purple-600 text-purple-300',
+  },
+  {
+    value: 'cardio',
+    label: 'Cardio',
+    desc: 'Running, cycling, rowing',
+    active: 'bg-green-950 border-green-600 text-green-300',
+  },
+  {
+    value: 'flexibility',
+    label: 'Flexibility',
+    desc: 'Stretching routines',
+    active: 'bg-orange-950 border-orange-600 text-orange-300',
+  },
+]
+
+const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core']
+const SKILL_LEVELS = ['beginner', 'intermediate', 'advanced']
+const CARDIO_ACTIVITIES = ['Running', 'Cycling', 'Rowing']
+
+// ── Exercise row editors ──────────────────────────────────────
+const inp = 'bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 w-full'
+const sel = inp + ' appearance-none'
+
+function TonalRow({ row, i, update, remove, canRemove }) {
+  return (
+    <div className="grid grid-cols-[1fr_108px_48px_48px_32px] gap-2 items-center">
+      <input
+        value={row.exercise_name}
+        onChange={(e) => update(i, 'exercise_name', e.target.value)}
+        placeholder="Exercise name"
+        className={inp}
+      />
+      <select
+        value={row.muscle_group}
+        onChange={(e) => update(i, 'muscle_group', e.target.value)}
+        className={sel}
+      >
+        <option value="">Muscle…</option>
+        {MUSCLE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+      </select>
+      <input
+        value={row.sets}
+        onChange={(e) => update(i, 'sets', e.target.value)}
+        placeholder="Sets"
+        className={inp + ' text-center'}
+      />
+      <input
+        value={row.reps}
+        onChange={(e) => update(i, 'reps', e.target.value)}
+        placeholder="Reps"
+        className={inp + ' text-center'}
+      />
+      <button
+        onClick={() => remove(i)}
+        disabled={!canRemove}
+        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 disabled:opacity-30 transition-colors"
+      >
+        <TrashIcon className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+function LadderRow({ row, i, update, remove, canRemove }) {
+  return (
+    <div className="grid grid-cols-[1fr_120px_48px_48px_32px] gap-2 items-center">
+      <input
+        value={row.exercise_name}
+        onChange={(e) => update(i, 'exercise_name', e.target.value)}
+        placeholder="Exercise name"
+        className={inp}
+      />
+      <select
+        value={row.skill_level}
+        onChange={(e) => update(i, 'skill_level', e.target.value)}
+        className={sel}
+      >
+        {SKILL_LEVELS.map((s) => (
+          <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+        ))}
+      </select>
+      <input
+        value={row.sets}
+        onChange={(e) => update(i, 'sets', e.target.value)}
+        placeholder="Sets"
+        className={inp + ' text-center'}
+      />
+      <input
+        value={row.reps}
+        onChange={(e) => update(i, 'reps', e.target.value)}
+        placeholder="Reps"
+        className={inp + ' text-center'}
+      />
+      <button
+        onClick={() => remove(i)}
+        disabled={!canRemove}
+        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 disabled:opacity-30 transition-colors"
+      >
+        <TrashIcon className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+function CardioRow({ row, i, update, remove, canRemove }) {
+  return (
+    <div className="grid grid-cols-[120px_80px_80px_1fr_32px] gap-2 items-center">
+      <select
+        value={row.activity_type}
+        onChange={(e) => update(i, 'activity_type', e.target.value)}
+        className={sel}
+      >
+        {CARDIO_ACTIVITIES.map((a) => <option key={a} value={a}>{a}</option>)}
+      </select>
+      <input
+        value={row.target_distance}
+        onChange={(e) => update(i, 'target_distance', e.target.value)}
+        placeholder="Dist (km)"
+        className={inp + ' text-center'}
+      />
+      <input
+        value={row.target_duration_secs}
+        onChange={(e) => update(i, 'target_duration_secs', e.target.value)}
+        placeholder="Dur (min)"
+        className={inp + ' text-center'}
+        title="Enter duration in minutes"
+      />
+      <input
+        value={row.target_pace}
+        onChange={(e) => update(i, 'target_pace', e.target.value)}
+        placeholder="Pace (e.g. 5:30/km)"
+        className={inp}
+      />
+      <button
+        onClick={() => remove(i)}
+        disabled={!canRemove}
+        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 disabled:opacity-30 transition-colors"
+      >
+        <TrashIcon className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+function FlexRow({ row, i, update, remove, canRemove }) {
+  return (
+    <div className="grid grid-cols-[1fr_100px_32px] gap-2 items-center">
+      <input
+        value={row.exercise_name}
+        onChange={(e) => update(i, 'exercise_name', e.target.value)}
+        placeholder="Stretch / exercise name"
+        className={inp}
+      />
+      <input
+        value={row.target_duration_secs}
+        onChange={(e) => update(i, 'target_duration_secs', e.target.value)}
+        placeholder="Hold (sec)"
+        className={inp + ' text-center'}
+      />
+      <button
+        onClick={() => remove(i)}
+        disabled={!canRemove}
+        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 disabled:opacity-30 transition-colors"
+      >
+        <TrashIcon className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+// ── Main modal ────────────────────────────────────────────────
 export function CreateTemplateModal({ onClose, onSave }) {
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
@@ -43,52 +238,58 @@ export function CreateTemplateModal({ onClose, onSave }) {
   const [csvText, setCsvText] = useState('')
   const [csvError, setCsvError] = useState(null)
   const [preview, setPreview] = useState(null)
-  const [rows, setRows] = useState([emptyRow()])
+  const [rows, setRows] = useState([EMPTY.tonal()])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const fileRef = useRef(null)
+
+  const update = (i, field, val) =>
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: val } : r)))
+  const addRow = () => setRows((prev) => [...prev, EMPTY[type]()])
+  const removeRow = (i) => setRows((prev) => prev.filter((_, idx) => idx !== i))
 
   const handleParseCSV = () => {
-    const result = parseCSV(csvText)
+    const result = parseCSV(csvText, type)
     setCsvError(result.error)
     setPreview(result.error ? null : result.exercises)
   }
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const text = ev.target.result
-      setCsvText(text)
-      const result = parseCSV(text)
-      setCsvError(result.error)
-      setPreview(result.error ? null : result.exercises)
-    }
-    reader.readAsText(file)
-  }
-
-  const updateRow = (i, field, val) =>
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: val } : r)))
-
-  const addRow = () => setRows((prev) => [...prev, emptyRow()])
-  const removeRow = (i) => setRows((prev) => prev.filter((_, idx) => idx !== i))
 
   const handleSave = async () => {
     if (!name.trim()) { setError('Template name is required.'); return }
 
     let exercises
-    if (inputMode === 'csv') {
+    if (inputMode === 'csv' && (type === 'tonal' || type === 'swedish_ladder')) {
       if (!preview?.length) { setError('Parse your CSV first — or switch to Manual Entry.'); return }
       exercises = preview
     } else {
-      exercises = rows
-        .filter((r) => r.exercise_name.trim())
-        .map((r) => ({
-          exercise_name: r.exercise_name.trim(),
-          sets: parseInt(r.sets) || null,
-          reps: parseInt(r.reps) || null,
-        }))
+      if (type === 'cardio') {
+        exercises = rows
+          .filter((r) => r.activity_type)
+          .map((r) => ({
+            exercise_name: r.activity_type,
+            activity_type: r.activity_type,
+            target_distance: r.target_distance || null,
+            // convert minutes → seconds
+            target_duration_secs: r.target_duration_secs ? Number(r.target_duration_secs) * 60 : null,
+            target_pace: r.target_pace || null,
+          }))
+      } else if (type === 'flexibility') {
+        exercises = rows
+          .filter((r) => r.exercise_name.trim())
+          .map((r) => ({
+            exercise_name: r.exercise_name.trim(),
+            target_duration_secs: r.target_duration_secs ? Number(r.target_duration_secs) : null,
+          }))
+      } else {
+        exercises = rows
+          .filter((r) => r.exercise_name.trim())
+          .map((r) => ({
+            exercise_name: r.exercise_name.trim(),
+            sets: parseInt(r.sets) || null,
+            reps: parseInt(r.reps) || null,
+            muscle_group: r.muscle_group || null,
+            skill_level: r.skill_level || null,
+          }))
+      }
       if (!exercises.length) { setError('Add at least one exercise.'); return }
     }
 
@@ -97,6 +298,8 @@ export function CreateTemplateModal({ onClose, onSave }) {
     setSaving(false)
     if (saveError) setError(saveError.message)
   }
+
+  const showCSV = (type === 'tonal' || type === 'swedish_ladder')
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -128,19 +331,17 @@ export function CreateTemplateModal({ onClose, onSave }) {
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Type</label>
-                <div className="flex gap-3">
-                  {[
-                    { value: 'tonal', label: 'Tonal', active: 'bg-blue-950 border-blue-600 text-blue-300' },
-                    { value: 'swedish_ladder', label: 'Swedish Ladder', active: 'bg-purple-950 border-purple-600 text-purple-300' },
-                  ].map(({ value, label, active }) => (
+                <div className="grid grid-cols-2 gap-3">
+                  {TYPES.map(({ value, label, desc, active }) => (
                     <button
                       key={value}
                       onClick={() => setType(value)}
-                      className={`flex-1 py-3 rounded-xl border-2 text-sm font-medium transition-colors ${
+                      className={`py-3 px-4 rounded-xl border-2 text-left transition-colors ${
                         type === value ? active : 'border-gray-700 text-gray-500 hover:border-gray-600'
                       }`}
                     >
-                      {label}
+                      <div className="text-sm font-semibold">{label}</div>
+                      <div className="text-xs mt-0.5 opacity-70">{desc}</div>
                     </button>
                   ))}
                 </div>
@@ -148,113 +349,120 @@ export function CreateTemplateModal({ onClose, onSave }) {
             </>
           ) : (
             <>
-              {/* Input mode toggle */}
-              <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
-                {['manual', 'csv'].map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setInputMode(m)}
-                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      inputMode === m ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'
-                    }`}
-                  >
-                    {m === 'manual' ? 'Manual Entry' : 'Import CSV'}
-                  </button>
-                ))}
-              </div>
-
-              {inputMode === 'manual' ? (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-[1fr_56px_56px_36px] gap-2 px-1">
-                    <span className="text-xs text-gray-500 uppercase">Exercise</span>
-                    <span className="text-xs text-gray-500 uppercase text-center">Sets</span>
-                    <span className="text-xs text-gray-500 uppercase text-center">Reps</span>
-                    <span />
-                  </div>
-                  {rows.map((row, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_56px_56px_36px] gap-2 items-center">
-                      <input
-                        value={row.exercise_name}
-                        onChange={(e) => updateRow(i, 'exercise_name', e.target.value)}
-                        placeholder="Exercise name"
-                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-indigo-500"
-                      />
-                      <input
-                        value={row.sets}
-                        onChange={(e) => updateRow(i, 'sets', e.target.value)}
-                        placeholder="3"
-                        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm text-gray-100 text-center focus:outline-none focus:border-indigo-500"
-                      />
-                      <input
-                        value={row.reps}
-                        onChange={(e) => updateRow(i, 'reps', e.target.value)}
-                        placeholder="10"
-                        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm text-gray-100 text-center focus:outline-none focus:border-indigo-500"
-                      />
-                      <button
-                        onClick={() => removeRow(i)}
-                        disabled={rows.length === 1}
-                        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 disabled:opacity-30 transition-colors"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
+              {/* Input mode toggle — CSV only for tonal/swedish_ladder */}
+              {showCSV && (
+                <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
+                  {['manual', 'csv'].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setInputMode(m)}
+                      className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        inputMode === m ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      {m === 'manual' ? 'Manual Entry' : 'Import CSV'}
+                    </button>
                   ))}
+                </div>
+              )}
+
+              {(inputMode === 'manual' || !showCSV) ? (
+                <div className="space-y-2">
+                  {/* Column headers */}
+                  {type === 'tonal' && (
+                    <div className="grid grid-cols-[1fr_108px_48px_48px_32px] gap-2 px-0.5">
+                      <span className="text-xs text-gray-500 uppercase">Exercise</span>
+                      <span className="text-xs text-gray-500 uppercase">Muscle</span>
+                      <span className="text-xs text-gray-500 uppercase text-center">Sets</span>
+                      <span className="text-xs text-gray-500 uppercase text-center">Reps</span>
+                      <span />
+                    </div>
+                  )}
+                  {type === 'swedish_ladder' && (
+                    <div className="grid grid-cols-[1fr_120px_48px_48px_32px] gap-2 px-0.5">
+                      <span className="text-xs text-gray-500 uppercase">Exercise</span>
+                      <span className="text-xs text-gray-500 uppercase">Skill Level</span>
+                      <span className="text-xs text-gray-500 uppercase text-center">Sets</span>
+                      <span className="text-xs text-gray-500 uppercase text-center">Reps</span>
+                      <span />
+                    </div>
+                  )}
+                  {type === 'cardio' && (
+                    <div className="grid grid-cols-[120px_80px_80px_1fr_32px] gap-2 px-0.5">
+                      <span className="text-xs text-gray-500 uppercase">Activity</span>
+                      <span className="text-xs text-gray-500 uppercase text-center">Dist (km)</span>
+                      <span className="text-xs text-gray-500 uppercase text-center">Dur (min)</span>
+                      <span className="text-xs text-gray-500 uppercase">Pace</span>
+                      <span />
+                    </div>
+                  )}
+                  {type === 'flexibility' && (
+                    <div className="grid grid-cols-[1fr_100px_32px] gap-2 px-0.5">
+                      <span className="text-xs text-gray-500 uppercase">Exercise</span>
+                      <span className="text-xs text-gray-500 uppercase text-center">Hold (sec)</span>
+                      <span />
+                    </div>
+                  )}
+
+                  {rows.map((row, i) =>
+                    type === 'tonal' ? (
+                      <TonalRow key={i} row={row} i={i} update={update} remove={removeRow} canRemove={rows.length > 1} />
+                    ) : type === 'swedish_ladder' ? (
+                      <LadderRow key={i} row={row} i={i} update={update} remove={removeRow} canRemove={rows.length > 1} />
+                    ) : type === 'cardio' ? (
+                      <CardioRow key={i} row={row} i={i} update={(idx, field, val) => {
+                        if (field === 'activity_type') {
+                          setRows(prev => prev.map((r, ri) => ri === idx ? { ...r, activity_type: val, exercise_name: val } : r))
+                        } else {
+                          update(idx, field, val)
+                        }
+                      }} remove={removeRow} canRemove={rows.length > 1} />
+                    ) : (
+                      <FlexRow key={i} row={row} i={i} update={update} remove={removeRow} canRemove={rows.length > 1} />
+                    )
+                  )}
+
                   <button
                     onClick={addRow}
                     className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors mt-1"
                   >
                     <PlusIcon className="w-4 h-4" />
-                    Add exercise
+                    Add {type === 'cardio' ? 'activity' : type === 'flexibility' ? 'stretch' : 'exercise'}
                   </button>
                 </div>
               ) : (
+                // CSV import (tonal / swedish_ladder only)
                 <div className="space-y-3">
                   <p className="text-sm text-gray-500">
-                    Paste CSV with columns:{' '}
-                    <span className="text-gray-300">Exercise, Sets, Reps</span>
-                    <br />
-                    Column names are detected automatically — order doesn't matter.
+                    {type === 'tonal'
+                      ? <>Columns: <span className="text-gray-300">Exercise, Muscle, Sets, Reps</span></>
+                      : <>Columns: <span className="text-gray-300">Exercise, Sets, Reps, Skill Level</span></>}
+                    <br />Column names are detected automatically.
                   </p>
                   <textarea
                     value={csvText}
-                    onChange={(e) => {
-                      setCsvText(e.target.value)
-                      setPreview(null)
-                      setCsvError(null)
-                    }}
+                    onChange={(e) => { setCsvText(e.target.value); setPreview(null); setCsvError(null) }}
                     rows={6}
-                    placeholder={'Exercise,Sets,Reps\nChest Press,3,10\nRow,3,12\nShoulder Press,3,8'}
+                    placeholder={
+                      type === 'tonal'
+                        ? 'Exercise,Muscle,Sets,Reps\nChest Press,Chest,3,10\nRow,Back,3,12'
+                        : 'Exercise,Sets,Reps,Skill Level\nPull-up,3,8,intermediate\nDip,3,10,beginner'
+                    }
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 font-mono focus:outline-none focus:border-indigo-500 resize-none"
                   />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleParseCSV}
-                      className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white text-sm rounded-lg transition-colors"
-                    >
-                      Parse CSV
-                    </button>
-                    <button
-                      onClick={() => fileRef.current?.click()}
-                      className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded-lg transition-colors"
-                    >
-                      Upload File
-                    </button>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept=".csv,text/csv"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                  </div>
+                  <button
+                    onClick={handleParseCSV}
+                    className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white text-sm rounded-lg transition-colors"
+                  >
+                    Parse CSV
+                  </button>
 
                   {csvError && <p className="text-sm text-red-400">{csvError}</p>}
 
                   {preview && (
                     <div className="bg-gray-800 rounded-xl p-3 space-y-2">
                       <p className="text-xs text-green-400 font-medium">
-                        {preview.length} exercises parsed — looks good!
+                        {preview.length} exercises parsed
                       </p>
                       <div className="max-h-48 overflow-y-auto space-y-1">
                         {preview.map((ex, i) => (
@@ -262,6 +470,8 @@ export function CreateTemplateModal({ onClose, onSave }) {
                             <span className="text-gray-200">{ex.exercise_name}</span>
                             <span className="text-gray-500">
                               {ex.sets ?? '?'} × {ex.reps ?? '?'}
+                              {ex.muscle_group && ` · ${ex.muscle_group}`}
+                              {ex.skill_level && ` · ${ex.skill_level}`}
                             </span>
                           </div>
                         ))}
@@ -289,6 +499,11 @@ export function CreateTemplateModal({ onClose, onSave }) {
               onClick={() => {
                 if (!name.trim()) { setError('Name is required.'); return }
                 setError(null)
+                setRows([EMPTY[type]()])
+                setInputMode('manual')
+                setCsvText('')
+                setPreview(null)
+                setCsvError(null)
                 setStep(2)
               }}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -296,13 +511,21 @@ export function CreateTemplateModal({ onClose, onSave }) {
               Next: Add Exercises
             </button>
           ) : (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              {saving ? 'Saving…' : 'Save Template'}
-            </button>
+            <>
+              <button
+                onClick={() => { setStep(1); setError(null) }}
+                className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {saving ? 'Saving…' : 'Save Template'}
+              </button>
+            </>
           )}
         </div>
       </div>
