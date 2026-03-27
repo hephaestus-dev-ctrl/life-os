@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { CheckCircleIcon } from '@heroicons/react/24/outline'
+import { useConsistency } from '../consistency/useConsistency'
+import { ConsistencyMiniChart } from '../consistency/Consistency'
 
 // ── Date helpers ─────────────────────────────────────────────
 
@@ -182,6 +184,52 @@ function AttentionCard({ to, label, accentClass, children }) {
   )
 }
 
+// ── Consistency widget ────────────────────────────────────────
+
+function scoreColor(n) {
+  if (n >= 80) return '#10b981'
+  if (n >= 50) return '#f59e0b'
+  return '#ef4444'
+}
+
+function ConsistencyWidget({ userId }) {
+  const { data, loading } = useConsistency(userId, 7)
+
+  const score = data?.todayScore?.score ?? 0
+
+  return (
+    <Link
+      to="/consistency"
+      className="rounded-xl px-4 py-3 transition-all hover:-translate-y-px block"
+      style={{
+        backgroundColor: '#1e2130',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderLeft: `3px solid ${scoreColor(score)}`,
+      }}
+    >
+      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 mb-1">
+        Consistency
+      </p>
+
+      {loading ? (
+        <div className="h-8 flex items-center">
+          <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          <p
+            className="text-[28px] font-bold leading-none mb-2"
+            style={{ color: scoreColor(score) }}
+          >
+            {score}
+          </p>
+          <ConsistencyMiniChart dailyScores={data?.dailyScores ?? []} />
+        </>
+      )}
+    </Link>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────
 
 export default function Dashboard({ session }) {
@@ -212,7 +260,7 @@ export default function Dashboard({ session }) {
       ) : (
         <>
           {/* ── Stat cards ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-10">
             <StatCard
               to="/habits"
               label="Habits today"
@@ -266,6 +314,7 @@ export default function Dashboard({ session }) {
               value={s.booksFinished}
               sub="total"
             />
+            <ConsistencyWidget userId={session?.user?.id} />
           </div>
 
           {/* ── Needs attention ── */}

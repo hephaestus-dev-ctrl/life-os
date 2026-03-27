@@ -12,6 +12,8 @@ import Notes from './modules/notes/Notes'
 import NoteEditorPage from './modules/notes/NoteEditorPage'
 import Books from './modules/books/Books'
 import Workouts from './modules/workouts/Workouts'
+import AIReview from './modules/aireview/AIReview'
+import Consistency from './modules/consistency/Consistency'
 
 function ProtectedRoute({ session, children }) {
   if (session === undefined) return null // still loading
@@ -65,6 +67,8 @@ export default function App() {
                   <Route path="/notes/edit/:id" element={<NoteEditorPage />} />
                   <Route path="/books" element={<Books />} />
                   <Route path="/workouts" element={<Workouts />} />
+                  <Route path="/ai-review" element={<AIReview session={session} />} />
+                  <Route path="/consistency" element={<Consistency session={session} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>

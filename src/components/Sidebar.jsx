@@ -6,9 +6,10 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ArrowRightStartOnRectangleIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 
-export default function Sidebar({ session }) {
+export default function Sidebar({ session, onOpenSearch }) {
   const [collapsed, setCollapsed] = useState(false)
   const navigate = useNavigate()
 
@@ -56,8 +57,28 @@ export default function Sidebar({ session }) {
         </button>
       </div>
 
+      {/* Search button */}
+      <div className="px-2 pt-3 pb-1">
+        <button
+          onClick={onOpenSearch}
+          title={collapsed ? 'Search (⌘K)' : undefined}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:bg-gray-800 hover:text-gray-100 ${
+            collapsed ? 'justify-center' : ''
+          }`}
+          style={{ border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <MagnifyingGlassIcon className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && (
+            <span className="flex-1 text-left">Search</span>
+          )}
+          {!collapsed && (
+            <kbd className="text-[10px] text-gray-700 font-mono">⌘K</kbd>
+          )}
+        </button>
+      </div>
+
       {/* Nav items */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(({ label, path, icon: Icon }) => (
           <NavLink
             key={path}
