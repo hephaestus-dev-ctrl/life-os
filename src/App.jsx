@@ -14,6 +14,8 @@ import Books from './modules/books/Books'
 import Workouts from './modules/workouts/Workouts'
 import AIReview from './modules/aireview/AIReview'
 import Consistency from './modules/consistency/Consistency'
+import Education from './modules/education/Education'
+import CourseDetail from './modules/education/CourseDetail'
 
 function ProtectedRoute({ session, children }) {
   if (session === undefined) return null // still loading
@@ -69,6 +71,8 @@ export default function App() {
                   <Route path="/workouts" element={<Workouts />} />
                   <Route path="/ai-review" element={<AIReview session={session} />} />
                   <Route path="/consistency" element={<Consistency session={session} />} />
+                  <Route path="/education" element={<Education session={session} />} />
+                  <Route path="/education/:courseId" element={<CourseDetail session={session} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>

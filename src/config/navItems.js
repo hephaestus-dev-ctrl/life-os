@@ -9,6 +9,7 @@ import {
   BoltIcon,
   StarIcon,
   ChartBarIcon,
+  AcademicCapIcon,
 } from '@heroicons/react/24/outline'
 
 export const NAV_ITEMS = [
@@ -20,6 +21,7 @@ export const NAV_ITEMS = [
   { label: 'Notes',       path: '/notes',        icon: DocumentTextIcon },
   { label: 'Books',       path: '/books',        icon: BookmarkIcon },
   { label: 'Workouts',    path: '/workouts',     icon: BoltIcon },
+  { label: 'Education',   path: '/education',    icon: AcademicCapIcon },
   { label: 'Consistency', path: '/consistency',  icon: ChartBarIcon },
   { label: 'AI Review',   path: '/ai-review',    icon: StarIcon },
 ]
