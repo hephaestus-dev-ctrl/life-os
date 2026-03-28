@@ -208,7 +208,7 @@ const CATEGORY_COLORS = {
 const CATEGORY_MAX = {
   habits:  40,
   journal: 20,
-  workout: 20,
+  workout: 100,
   chores:  20,
 }
 
@@ -260,18 +260,39 @@ function ConsistencyHero({ userId }) {
               </p>
 
               <div className="flex flex-wrap gap-2">
-                {['habits', 'journal', 'workout', 'chores'].map((cat) => (
-                  <span
-                    key={cat}
-                    className="rounded-lg px-3 py-1.5 text-xs"
-                    style={{ backgroundColor: '#242736' }}
-                  >
-                    <span className="text-gray-400 capitalize">{cat} </span>
-                    <span style={{ color: CATEGORY_COLORS[cat] }}>
-                      {ts[cat] ?? 0}/{CATEGORY_MAX[cat]}
+                {['habits', 'journal', 'workout', 'chores'].map((cat) => {
+                  if (cat === 'workout') {
+                    const isOnFire = ts.onFire
+                    const displayVal = ts.workoutDisplay ?? ts.workout ?? 0
+                    return (
+                      <span
+                        key={cat}
+                        className="rounded-lg px-3 py-1.5 text-xs"
+                        style={{
+                          backgroundColor: '#242736',
+                          ...(isOnFire ? { border: '1px solid #f97316' } : {}),
+                        }}
+                      >
+                        <span className="text-gray-400 capitalize">workout </span>
+                        <span style={{ color: isOnFire ? '#f97316' : '#10b981' }}>
+                          {displayVal}/100{isOnFire ? '🔥' : ''}
+                        </span>
+                      </span>
+                    )
+                  }
+                  return (
+                    <span
+                      key={cat}
+                      className="rounded-lg px-3 py-1.5 text-xs"
+                      style={{ backgroundColor: '#242736' }}
+                    >
+                      <span className="text-gray-400 capitalize">{cat} </span>
+                      <span style={{ color: CATEGORY_COLORS[cat] }}>
+                        {ts[cat] ?? 0}/{CATEGORY_MAX[cat]}
+                      </span>
                     </span>
-                  </span>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}

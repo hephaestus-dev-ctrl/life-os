@@ -37,27 +37,71 @@ function moodValue(mood) {
 }
 
 // ── Score calculation ─────────────────────────────────────────
-// weights: habits 40%, journal 20%, workout 20%, chores 20%
+// weights: habits 40%, journal 20%, workout 30%, chores 10%
 
-function computeDailyScore({ date, habitLogs, totalHabits, journalSet, workoutWeeks, choreLogSet }) {
-  const habitsScore = totalHabits > 0
-    ? Math.round((habitLogs.filter((l) => l.completed_date === date).length / totalHabits) * 40)
+function computeDailyScore({ date, habitLogs, totalHabits, journals, workoutWeeks, weeklyWorkoutCounts, choreLogs, chores }) {
+
+  // ── HABITS (0-100, weight 40%) ──
+  const uniqueHabitsToday = new Set(
+    habitLogs.filter((l) => l.completed_date === date).map((l) => l.habit_id)
+  ).size
+  const habitPct = totalHabits > 0 ? uniqueHabitsToday / totalHabits : 0
+  const habitsRaw = totalHabits === 0 ? 0
+    : habitPct === 1   ? 100
+    : habitPct >= 0.8  ? 80
+    : habitPct >= 0.6  ? 60
     : 0
 
-  const journalScore = journalSet.has(date) ? 20 : 0
+  // ── JOURNAL (0-100, weight 20%) ──
+  const journalEntry = journals.find((j) => j.entry_date === date)
+  const journalRaw = journalEntry
+    ? (journalEntry.entry_date ? 60 : 0)
+      + (journalEntry.mood     ? 20 : 0)
+      + (journalEntry.gratitude && journalEntry.gratitude.trim() ? 20 : 0)
+    : 0
 
+  // ── WORKOUTS (0-100 capped for score, raw can exceed 100, weight 30%) ──
   const week = isoWeekStart(date)
-  const workoutScore = workoutWeeks.has(week) ? 20 : 0
+  const weekCount = weeklyWorkoutCounts[week] ?? 0
+  const workoutRaw = weekCount >= 6 ? 100
+    : weekCount >= 4 ? 75
+    : weekCount >= 2 ? 50
+    : weekCount === 1 ? 25
+    : 0
+  const workoutDisplay = weekCount >= 6
+    ? Math.round((weekCount / 6) * 100)  // can exceed 100 for display
+    : workoutRaw
+  const onFire = weekCount >= 6
 
-  const choreScore = choreLogSet.has(date) ? 20 : 0
+  // ── CHORES (0-100, weight 10%) ──
+  const totalChores = chores.length
+  const completedToday = new Set(
+    choreLogs.filter((l) => l.completed_date <= date).map((l) => l.chore_id)
+  ).size
+  const chorePct = totalChores > 0 ? completedToday / totalChores : 0
+  const choresRaw = totalChores === 0 ? 100
+    : chorePct === 1   ? 100
+    : chorePct >= 0.8  ? 75
+    : chorePct >= 0.6  ? 50
+    : 25
+
+  // ── FINAL SCORE (weighted, 0-100) ──
+  const score = Math.min(100, Math.round(
+    habitsRaw  * 0.40 +
+    workoutRaw * 0.30 +
+    journalRaw * 0.20 +
+    choresRaw  * 0.10
+  ))
 
   return {
     date,
-    score:   habitsScore + journalScore + workoutScore + choreScore,
-    habits:  habitsScore,
-    journal: journalScore,
-    workout: workoutScore,
-    chores:  choreScore,
+    score,
+    habits:         habitsRaw,
+    journal:        journalRaw,
+    workout:        workoutRaw,
+    workoutDisplay, // raw display value — can exceed 100
+    onFire,         // true when 6+ workouts this week
+    chores:         choresRaw,
   }
 }
 
@@ -113,7 +157,7 @@ export function useConsistency(userId, days = 30) {
       ] = await Promise.all([
         supabase.from('habits').select('id, name').eq('user_id', userId).is('routine_type', null),
         supabase.from('habit_logs').select('habit_id, completed_date').eq('user_id', userId).gte('completed_date', start).lte('completed_date', end),
-        supabase.from('journal_entries').select('entry_date, mood').eq('user_id', userId).gte('entry_date', start).lte('entry_date', end),
+        supabase.from('journal_entries').select('entry_date, mood, gratitude').eq('user_id', userId).gte('entry_date', start).lte('entry_date', end),
         supabase.from('workout_sessions').select('session_date').eq('user_id', userId).gte('session_date', startExtra).lte('session_date', end),
         supabase.from('chores').select('id, title, cadence').eq('user_id', userId),
         supabase.from('chore_logs').select('chore_id, completed_date').eq('user_id', userId).gte('completed_date', start).lte('completed_date', end),
@@ -127,9 +171,13 @@ export function useConsistency(userId, days = 30) {
       const choreLogs = choreLogsRes.data ?? []
 
       // Pre-compute lookup sets
-      const journalSet   = new Set(journals.map((j) => j.entry_date))
       const workoutWeeks = new Set(workouts.map((w) => isoWeekStart(w.session_date)))
-      const choreLogSet  = new Set(choreLogs.map((l) => l.completed_date))
+
+      const weeklyWorkoutCounts = {}
+      for (const w of workouts) {
+        const wk = isoWeekStart(w.session_date)
+        weeklyWorkoutCounts[wk] = (weeklyWorkoutCounts[wk] ?? 0) + 1
+      }
 
       // ── Daily scores ──────────────────────────────────────
       const allDates  = dateRange(start, end)
@@ -138,9 +186,11 @@ export function useConsistency(userId, days = 30) {
           date,
           habitLogs,
           totalHabits: habits.length,
-          journalSet,
+          journals,
           workoutWeeks,
-          choreLogSet,
+          weeklyWorkoutCounts,
+          choreLogs,
+          chores,
         })
       )
 
