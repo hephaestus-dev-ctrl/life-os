@@ -39,13 +39,15 @@ function moodValue(mood) {
 // ── Score calculation ─────────────────────────────────────────
 // weights: habits 40%, journal 20%, workout 30%, chores 10%
 
-function computeDailyScore({ date, habitLogs, totalHabits, journals, workoutWeeks, weeklyWorkoutCounts, choreLogs, chores }) {
+function computeDailyScore({ date, habitLogs, totalHabits, journals, workoutWeeks, weeklyWorkoutCounts, workoutDates, choreLogs, chores }) {
 
   // ── HABITS (0-100, weight 40%) ──
   const uniqueHabitsToday = new Set(
     habitLogs.filter((l) => l.completed_date === date).map((l) => l.habit_id)
   ).size
-  const habitPct = totalHabits > 0 ? uniqueHabitsToday / totalHabits : 0
+  const habitPct = totalHabits > 0
+    ? Math.round((uniqueHabitsToday / totalHabits) * 100) / 100
+    : 0
   const habitsRaw = totalHabits === 0 ? 0
     : habitPct === 1   ? 100
     : habitPct >= 0.8  ? 80
@@ -63,14 +65,11 @@ function computeDailyScore({ date, habitLogs, totalHabits, journals, workoutWeek
   // ── WORKOUTS (0-100 capped for score, raw can exceed 100, weight 30%) ──
   const week = isoWeekStart(date)
   const weekCount = weeklyWorkoutCounts[week] ?? 0
-  const workoutRaw = weekCount >= 6 ? 100
-    : weekCount >= 4 ? 75
-    : weekCount >= 2 ? 50
-    : weekCount === 1 ? 25
-    : 0
+  const workedOutToday = workoutDates.has(date)
+  const workoutRaw = workedOutToday ? 100 : 0
   const workoutDisplay = weekCount >= 6
-    ? Math.round((weekCount / 6) * 100)  // can exceed 100 for display
-    : workoutRaw
+    ? Math.round((weekCount / 6) * 100)
+    : Math.round((weekCount / 6) * 100) || 0
   const onFire = weekCount >= 6
 
   // ── CHORES (0-100, weight 10%) ──
@@ -180,6 +179,7 @@ export function useConsistency(userId, days = 30) {
       }
 
       // ── Daily scores ──────────────────────────────────────
+      const workoutDates = new Set(workouts.map((w) => w.session_date))
       const allDates  = dateRange(start, end)
       const dailyScores = allDates.map((date) =>
         computeDailyScore({
@@ -189,6 +189,7 @@ export function useConsistency(userId, days = 30) {
           journals,
           workoutWeeks,
           weeklyWorkoutCounts,
+          workoutDates,
           choreLogs,
           chores,
         })

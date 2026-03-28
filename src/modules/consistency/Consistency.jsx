@@ -256,7 +256,7 @@ export default function Consistency({ session }) {
                     <span className="text-lg font-bold leading-none" style={{ color }}>
                       {val}
                     </span>
-                    <span className="text-xs text-gray-700 mb-px">/{max}</span>
+                    <span className="text-xs text-gray-500 mb-px">/{max}</span>
                   </div>
                   <div className="h-1 rounded-full bg-gray-800 overflow-hidden">
                     <div

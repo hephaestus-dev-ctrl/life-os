@@ -288,8 +288,9 @@ function ConsistencyHero({ userId }) {
                     >
                       <span className="text-gray-400 capitalize">{cat} </span>
                       <span style={{ color: CATEGORY_COLORS[cat] }}>
-                        {ts[cat] ?? 0}/{CATEGORY_MAX[cat]}
+                        {ts[cat] ?? 0}
                       </span>
+                      <span style={{ color: '#6b7280' }}>/{CATEGORY_MAX[cat]}</span>
                     </span>
                   )
                 })}
