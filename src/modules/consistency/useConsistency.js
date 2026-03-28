@@ -42,16 +42,17 @@ function moodValue(mood) {
 function computeDailyScore({ date, habitLogs, totalHabits, journals, workoutWeeks, weeklyWorkoutCounts, workoutDates, choreLogs, chores }) {
 
   // ── HABITS (0-100, weight 40%) ──
-  const uniqueHabitsToday = new Set(
-    habitLogs.filter((l) => l.completed_date === date).map((l) => l.habit_id)
-  ).size
-  const habitPct = totalHabits > 0
-    ? Math.round((uniqueHabitsToday / totalHabits) * 100) / 100
-    : 0
+  const completedHabitIds = new Set(
+    habitLogs
+      .filter((l) => l.completed_date === date)
+      .map((l) => l.habit_id)
+  )
+  const uniqueHabitsToday = completedHabitIds.size
+  const habitPct = totalHabits > 0 ? uniqueHabitsToday / totalHabits : 0
   const habitsRaw = totalHabits === 0 ? 0
-    : habitPct === 1   ? 100
-    : habitPct >= 0.8  ? 80
-    : habitPct >= 0.6  ? 60
+    : uniqueHabitsToday >= totalHabits ? 100
+    : habitPct >= 0.8 ? 80
+    : habitPct >= 0.6 ? 60
     : 0
 
   // ── JOURNAL (0-100, weight 20%) ──
@@ -73,12 +74,33 @@ function computeDailyScore({ date, habitLogs, totalHabits, journals, workoutWeek
   const onFire = weekCount >= 6
 
   // ── CHORES (0-100, weight 10%) ──
-  const totalChores = chores.length
-  const completedToday = new Set(
-    choreLogs.filter((l) => l.completed_date <= date).map((l) => l.chore_id)
-  ).size
-  const chorePct = totalChores > 0 ? completedToday / totalChores : 0
-  const choresRaw = totalChores === 0 ? 100
+  // Only count chores that are due on this specific date
+  const dateObj = new Date(date + 'T00:00:00')
+  const dayOfWeek = dateObj.getDay() === 0 ? 6 : dateObj.getDay() - 1 // Mon=0 Sun=6
+  const WEEK_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+
+  const choresToday = chores.filter((c) => {
+    if (c.cadence === 'daily') return true
+    if (c.cadence === 'weekly') {
+      if (!c.assigned_day) return true // no assigned day = due any day this week
+      return WEEK_DAYS.indexOf(c.assigned_day) === dayOfWeek
+    }
+    if (c.cadence === 'monthly') {
+      // Due on the 1st of each month
+      return dateObj.getDate() === 1
+    }
+    return false
+  })
+
+  const completedTodayChores = choresToday.filter((c) =>
+    choreLogs.some((l) => l.chore_id === c.id && l.completed_date === date)
+  )
+
+  const chorePct = choresToday.length > 0
+    ? completedTodayChores.length / choresToday.length
+    : 1 // no chores due today = full score
+
+  const choresRaw = choresToday.length === 0 ? 100
     : chorePct === 1   ? 100
     : chorePct >= 0.8  ? 75
     : chorePct >= 0.6  ? 50
@@ -158,7 +180,7 @@ export function useConsistency(userId, days = 30) {
         supabase.from('habit_logs').select('habit_id, completed_date').eq('user_id', userId).gte('completed_date', start).lte('completed_date', end),
         supabase.from('journal_entries').select('entry_date, mood, gratitude').eq('user_id', userId).gte('entry_date', start).lte('entry_date', end),
         supabase.from('workout_sessions').select('session_date').eq('user_id', userId).gte('session_date', startExtra).lte('session_date', end),
-        supabase.from('chores').select('id, title, cadence').eq('user_id', userId),
+        supabase.from('chores').select('id, title, cadence, assigned_day').eq('user_id', userId),
         supabase.from('chore_logs').select('chore_id, completed_date').eq('user_id', userId).gte('completed_date', start).lte('completed_date', end),
       ])
 
