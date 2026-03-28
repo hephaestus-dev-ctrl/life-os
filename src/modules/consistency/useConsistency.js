@@ -98,9 +98,9 @@ function computeDailyScore({ date, habitLogs, totalHabits, journals, workoutWeek
 
   const chorePct = choresToday.length > 0
     ? completedTodayChores.length / choresToday.length
-    : 1 // no chores due today = full score
+    : 0
 
-  const choresRaw = choresToday.length === 0 ? 100
+  const choresRaw = choresToday.length === 0 ? 0
     : chorePct === 1   ? 100
     : chorePct >= 0.8  ? 75
     : chorePct >= 0.6  ? 50
