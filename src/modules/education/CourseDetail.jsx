@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { useEducation } from './useEducation'
 
@@ -133,45 +133,6 @@ function AddAssignmentModal({ courseId, onClose, onAdd }) {
         </div>
         {error && <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>{error}</p>}
         <SaveCancel onCancel={onClose} saving={saving} disabled={!title.trim()} label="Add Assignment" />
-      </form>
-    </Modal>
-  )
-}
-
-// ── Add Study Note Modal ───────────────────────────────────────────────────────
-function AddNoteModal({ courseId, onClose, onAdd }) {
-  const [title, setTitle]   = useState('')
-  const [content, setContent] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState(null)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!title.trim()) return
-    setSaving(true)
-    const { error } = await onAdd({ course_id: courseId, title: title.trim(), content: content.trim() || null })
-    setSaving(false)
-    if (error) { setError(error.message); return }
-    onClose()
-  }
-
-  return (
-    <Modal title="Add Study Note" onClose={onClose}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div>
-          <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 4 }}>Title *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="e.g. Chapter 4 Summary" style={inputStyle()} />
-        </div>
-        <div>
-          <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 4 }}>Content</label>
-          <textarea
-            value={content} onChange={(e) => setContent(e.target.value)}
-            rows={8} placeholder="Write your notes here…"
-            style={inputStyle({ resize: 'vertical', lineHeight: 1.6 })}
-          />
-        </div>
-        {error && <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>{error}</p>}
-        <SaveCancel onCancel={onClose} saving={saving} disabled={!title.trim()} label="Add Note" />
       </form>
     </Modal>
   )
@@ -374,11 +335,11 @@ function EmptyMsg({ msg }) {
 export default function CourseDetail() {
   const { courseId } = useParams()
   const navigate     = useNavigate()
+  const location     = useLocation()
   const edu          = useEducation()
 
-  const [tab, setTab]               = useState('assignments')
-  const [modal, setModal]           = useState(null) // 'addAssignment'|'addNote'|'addConcept'|'addBlock'|'logSession'
-  const [expandedNotes, setExpand]  = useState(new Set())
+  const [tab, setTab]               = useState(location.state?.tab || 'assignments')
+  const [modal, setModal]           = useState(null) // 'addAssignment'|'addConcept'|'addBlock'|'logSession'
   const [editGrade, setEditGrade]   = useState(false)
   const [gradeInput, setGradeInput] = useState('')
   const [gradeError, setGradeError] = useState(null)
@@ -454,14 +415,6 @@ export default function CourseDetail() {
     if (!isNaN(val)) await edu.updateAssignment(id, { grade_pct: val })
     setEditingGradeId(null)
     setAssignGrade('')
-  }
-
-  const toggleNote = (id) => {
-    setExpand((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
   }
 
   const today = new Date()
@@ -688,56 +641,44 @@ export default function CourseDetail() {
         ════════════════════════════════════════ */}
         {tab === 'notes' && (
           <>
-            <SectionHeader title={`Study Notes (${courseNotes.length})`} onAdd={() => setModal('addNote')} addLabel="Add Note" />
+            <SectionHeader
+              title={`Study Notes (${courseNotes.length})`}
+              onAdd={() => navigate(`/education/${courseId}/notes/new`)}
+              addLabel="Add Note"
+            />
             {courseNotes.length === 0 ? (
               <EmptyMsg msg="No notes yet. Add your first study note." />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {courseNotes.map((note) => {
-                  const expanded = expandedNotes.has(note.id)
-                  return (
-                    <div key={note.id} style={{
+                {courseNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    onClick={() => navigate(`/education/${courseId}/notes/${note.id}/edit`)}
+                    style={{
                       background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10,
-                    }}>
-                      <div
-                        onClick={() => toggleNote(note.id)}
-                        style={{
-                          padding: '14px 16px', cursor: 'pointer',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                        }}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ color: TEXT, fontSize: 15, fontWeight: 600, margin: '0 0 4px' }}>
-                            {note.title}
-                          </p>
-                          {!expanded && note.content && (
-                            <p style={{
-                              color: MUTED, fontSize: 13, margin: 0,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                              {note.content}
-                            </p>
-                          )}
-                          <span style={{ color: MUTED, fontSize: 11, marginTop: 4, display: 'block' }}>
-                            {formatDate(note.created_at?.split('T')[0])}
-                          </span>
-                        </div>
-                        <DeleteBtn onClick={(e) => { e.stopPropagation(); edu.deleteStudyNote(note.id) }} />
-                      </div>
-                      {expanded && note.content && (
-                        <div style={{
-                          padding: '0 16px 16px',
-                          borderTop: `1px solid ${BORDER}`,
-                          paddingTop: 14,
+                      padding: '14px 16px', cursor: 'pointer',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ color: TEXT, fontSize: 15, fontWeight: 600, margin: '0 0 4px' }}>
+                        {note.title}
+                      </p>
+                      {note.content && (
+                        <p style={{
+                          color: MUTED, fontSize: 13, margin: 0,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>
-                          <p style={{ color: TEXT, fontSize: 14, margin: 0, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-                            {note.content}
-                          </p>
-                        </div>
+                          {note.content}
+                        </p>
                       )}
+                      <span style={{ color: MUTED, fontSize: 11, marginTop: 4, display: 'block' }}>
+                        {formatDate(note.created_at?.split('T')[0])}
+                      </span>
                     </div>
-                  )
-                })}
+                    <DeleteBtn onClick={(e) => { e.stopPropagation(); edu.deleteStudyNote(note.id) }} />
+                  </div>
+                ))}
               </div>
             )}
           </>
@@ -879,9 +820,6 @@ export default function CourseDetail() {
       {/* ── Modals ── */}
       {modal === 'addAssignment' && (
         <AddAssignmentModal courseId={courseId} onClose={() => setModal(null)} onAdd={edu.addAssignment} />
-      )}
-      {modal === 'addNote' && (
-        <AddNoteModal courseId={courseId} onClose={() => setModal(null)} onAdd={edu.addStudyNote} />
       )}
       {modal === 'addConcept' && (
         <AddConceptModal courseId={courseId} onClose={() => setModal(null)} onAdd={edu.addKeyConcept} />

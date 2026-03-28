@@ -16,6 +16,7 @@ import AIReview from './modules/aireview/AIReview'
 import Consistency from './modules/consistency/Consistency'
 import Education from './modules/education/Education'
 import CourseDetail from './modules/education/CourseDetail'
+import StudyNoteEditor from './modules/education/StudyNoteEditor'
 
 function ProtectedRoute({ session, children }) {
   if (session === undefined) return null // still loading
@@ -73,6 +74,8 @@ export default function App() {
                   <Route path="/consistency" element={<Consistency session={session} />} />
                   <Route path="/education" element={<Education session={session} />} />
                   <Route path="/education/:courseId" element={<CourseDetail session={session} />} />
+                  <Route path="/education/:courseId/notes/new" element={<StudyNoteEditor />} />
+                  <Route path="/education/:courseId/notes/:noteId/edit" element={<StudyNoteEditor />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>
