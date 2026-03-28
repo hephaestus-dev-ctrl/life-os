@@ -101,11 +101,20 @@ function GenerateButton({ reviewType, onGenerated }) {
       const start = reviewType === 'weekly' ? isoWeekStart(now) : monthStart(now)
       const end   = today()
 
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setError('Not authenticated. Please refresh the page.')
+        return
+      }
+
       const { data, error: fnErr } = await supabase.functions.invoke('ai-review', {
         body: {
           review_type:  reviewType,
           period_start: start,
           period_end:   end,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       })
       if (fnErr) throw fnErr
