@@ -239,10 +239,10 @@ export default function Consistency({ session }) {
             {/* Category breakdown */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'Habits',  val: today.habits,  max: 40, color: '#6366f1' },
-                { label: 'Journal', val: today.journal, max: 20, color: '#f59e0b' },
-                { label: 'Workout', val: today.workout, max: 20, color: '#10b981' },
-                { label: 'Chores',  val: today.chores,  max: 20, color: '#14b8a6' },
+                { label: 'Habits',  val: today.habits,  max: 100, color: '#6366f1' },
+                { label: 'Journal', val: today.journal, max: 100, color: '#f59e0b' },
+                { label: 'Workout', val: today.workout, max: 100, color: '#10b981' },
+                { label: 'Chores',  val: today.chores,  max: 100, color: '#14b8a6' },
               ].map(({ label, val, max, color }) => (
                 <div
                   key={label}
