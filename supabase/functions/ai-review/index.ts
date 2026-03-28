@@ -55,18 +55,20 @@ Deno.serve(async (req) => {
       const { data: users } = await supabaseAdmin.auth.admin.listUsers()
       userIds = (users?.users ?? []).map((u) => u.id)
     } else {
-      // On-demand from client — validate JWT and extract user
+      // On-demand from client — verify JWT via auth client
       const authHeader = req.headers.get('Authorization')
-      if (!authHeader) {
+      if (!authHeader?.startsWith('Bearer ')) {
         return new Response(
           JSON.stringify({ error: 'Unauthorized' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-      // Use admin client to verify the JWT and get the user
-      const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
-        authHeader.replace('Bearer ', '')
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
       )
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
       if (userError || !user) {
         return new Response(
           JSON.stringify({ error: 'Unauthorized' }),
