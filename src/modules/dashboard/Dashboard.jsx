@@ -206,10 +206,10 @@ const CATEGORY_COLORS = {
 }
 
 const CATEGORY_MAX = {
-  habits:  40,
-  journal: 20,
+  habits:  100,
+  journal: 100,
   workout: 100,
-  chores:  20,
+  chores:  100,
 }
 
 function ConsistencyHero({ userId }) {
