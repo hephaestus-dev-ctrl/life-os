@@ -99,14 +99,14 @@ function BarChart({ data, color = '#10b981' }) {
 
 // ── Mini bar chart for dashboard widget ──────────────────────
 
-export function ConsistencyMiniChart({ dailyScores }) {
+export function ConsistencyMiniChart({ dailyScores, className = 'h-8', count = 7 }) {
   if (!dailyScores?.length) return null
 
-  const last7  = dailyScores.slice(-7)
+  const last7  = dailyScores.slice(-count)
   const maxVal = 100
 
   return (
-    <div className="flex items-end gap-0.5 h-8">
+    <div className={`flex items-end gap-0.5 ${className}`}>
       {last7.map((d) => {
         const frac = d.score / maxVal
         const col  = scoreColor(d.score)

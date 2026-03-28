@@ -184,7 +184,7 @@ function AttentionCard({ to, label, accentClass, children }) {
   )
 }
 
-// ── Consistency widget ────────────────────────────────────────
+// ── Consistency hero ──────────────────────────────────────────
 
 function scoreColor(n) {
   if (n >= 80) return '#10b981'
@@ -192,40 +192,97 @@ function scoreColor(n) {
   return '#ef4444'
 }
 
-function ConsistencyWidget({ userId }) {
+function scoreLabel(n) {
+  if (n >= 80) return 'Great'
+  if (n >= 50) return 'Ok'
+  return 'Low'
+}
+
+const CATEGORY_COLORS = {
+  habits:  '#6366f1',
+  journal: '#f59e0b',
+  workout: '#10b981',
+  chores:  '#14b8a6',
+}
+
+const CATEGORY_MAX = {
+  habits:  40,
+  journal: 20,
+  workout: 20,
+  chores:  20,
+}
+
+function ConsistencyHero({ userId }) {
   const { data, loading } = useConsistency(userId, 7)
 
-  const score = data?.todayScore?.score ?? 0
+  const score    = data?.todayScore?.score ?? 0
+  const ts       = data?.todayScore ?? {}
+  const daily    = data?.dailyScores ?? []
+  const avg7     = daily.length
+    ? Math.round(daily.reduce((s, d) => s + d.score, 0) / daily.length)
+    : 0
 
   return (
     <Link
       to="/consistency"
-      className="rounded-xl px-4 py-3 transition-all hover:-translate-y-px block"
+      className="block w-full rounded-2xl px-6 py-5 transition-all hover:-translate-y-px mb-6"
       style={{
         backgroundColor: '#1e2130',
         border: '1px solid rgba(255,255,255,0.07)',
-        borderLeft: `3px solid ${scoreColor(score)}`,
+        borderLeft: `4px solid ${scoreColor(score)}`,
       }}
     >
-      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-gray-500 mb-1">
-        Consistency
-      </p>
-
-      {loading ? (
-        <div className="h-8 flex items-center">
-          <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        <>
-          <p
-            className="text-[28px] font-bold leading-none mb-2"
-            style={{ color: scoreColor(score) }}
-          >
-            {score}
+      <div className="flex flex-col sm:flex-row gap-6">
+        {/* Left — score + breakdown */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500 mb-2">
+            Consistency Score
           </p>
-          <ConsistencyMiniChart dailyScores={data?.dailyScores ?? []} />
-        </>
-      )}
+
+          {loading ? (
+            <div className="h-16 flex items-center">
+              <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-6xl font-bold leading-none" style={{ color: scoreColor(score) }}>
+                  {score}
+                </span>
+                <span className="text-lg text-gray-500">/100</span>
+                <span className="text-base font-semibold" style={{ color: scoreColor(score) }}>
+                  {scoreLabel(score)}
+                </span>
+              </div>
+
+              <p className="text-sm text-gray-500 mb-4">
+                7-day avg: {avg7}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {['habits', 'journal', 'workout', 'chores'].map((cat) => (
+                  <span
+                    key={cat}
+                    className="rounded-lg px-3 py-1.5 text-xs"
+                    style={{ backgroundColor: '#242736' }}
+                  >
+                    <span className="text-gray-400 capitalize">{cat} </span>
+                    <span style={{ color: CATEGORY_COLORS[cat] }}>
+                      {ts[cat] ?? 0}/{CATEGORY_MAX[cat]}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Right — sparkline */}
+        <div className="flex flex-col justify-end sm:w-36 shrink-0">
+          <ConsistencyMiniChart dailyScores={daily} className="h-16" count={14} />
+          <p className="text-[10px] text-gray-700 mt-1">Last 7 days</p>
+        </div>
+      </div>
     </Link>
   )
 }
@@ -253,6 +310,9 @@ export default function Dashboard({ session }) {
         <p className="text-gray-500 mt-1 text-sm">{todayFormatted}</p>
       </div>
 
+      {/* ── Consistency hero ── */}
+      <ConsistencyHero userId={session?.user?.id} />
+
       {s === null ? (
         <div className="flex items-center justify-center h-48">
           <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
@@ -260,7 +320,7 @@ export default function Dashboard({ session }) {
       ) : (
         <>
           {/* ── Stat cards ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10">
             <StatCard
               to="/habits"
               label="Habits today"
@@ -314,7 +374,6 @@ export default function Dashboard({ session }) {
               value={s.booksFinished}
               sub="total"
             />
-            <ConsistencyWidget userId={session?.user?.id} />
           </div>
 
           {/* ── Needs attention ── */}
