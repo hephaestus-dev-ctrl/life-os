@@ -48,8 +48,18 @@ export default function AISearch({ isOpen, onClose }) {
     setError(null)
     setResult(null)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setError('Not authenticated. Please refresh the page.')
+        setLoading(false)
+        return
+      }
+
       const { data, error: fnErr } = await supabase.functions.invoke('ai-search', {
         body: { query: query.trim() },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       })
       if (fnErr) throw fnErr
       setResult(data)
