@@ -160,16 +160,19 @@ export default function StudyNoteEditor() {
     setSaving(true)
     setError(null)
 
+    const { data: { user } } = await supabase.auth.getUser()
+
     if (isNew) {
       const { error: err } = await supabase
         .from('study_notes')
-        .insert({ course_id: courseId, title: title.trim(), content: content.trim() || null })
+        .insert({ user_id: user.id, course_id: courseId, title: title.trim(), content: content.trim() || null })
       if (err) { setError(err.message); setSaving(false); return }
     } else {
       const { error: err } = await supabase
         .from('study_notes')
         .update({ title: title.trim(), content: content.trim() || null })
         .eq('id', noteId)
+        .eq('user_id', user.id)
       if (err) { setError(err.message); setSaving(false); return }
     }
 
