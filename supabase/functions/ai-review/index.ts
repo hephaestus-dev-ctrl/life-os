@@ -55,15 +55,25 @@ Deno.serve(async (req) => {
       const { data: users } = await supabaseAdmin.auth.admin.listUsers()
       userIds = (users?.users ?? []).map((u) => u.id)
     } else {
-      // On-demand from client — use user_id from request body
-      const userId = body.user_id
-      if (!userId) {
+      // On-demand from client — validate JWT and extract user
+      const authHeader = req.headers.get('Authorization')
+      if (!authHeader) {
         return new Response(
-          JSON.stringify({ error: 'user_id is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-      userIds = [userId]
+      // Use admin client to verify the JWT and get the user
+      const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      )
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      userIds = [user.id]
     }
 
     // Compute period
