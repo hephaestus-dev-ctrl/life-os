@@ -101,19 +101,12 @@ function GenerateButton({ reviewType, onGenerated }) {
       const start = reviewType === 'weekly' ? isoWeekStart(now) : monthStart(now)
       const end   = today()
 
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        setError('Not authenticated. Please refresh the page.')
-        setLoading(false)
-        return
-      }
-      await supabase.auth.setSession(session)
-
       const { data, error: fnErr } = await supabase.functions.invoke('ai-review', {
         body: {
           review_type:  reviewType,
           period_start: start,
           period_end:   end,
+          user_id:      (await supabase.auth.getUser()).data.user?.id,
         },
       })
       if (fnErr) throw fnErr

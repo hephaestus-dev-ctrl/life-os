@@ -55,27 +55,15 @@ Deno.serve(async (req) => {
       const { data: users } = await supabaseAdmin.auth.admin.listUsers()
       userIds = (users?.users ?? []).map((u) => u.id)
     } else {
-      // On-demand from client — validate JWT
-      const authHeader = req.headers.get('Authorization')
-      if (!authHeader) {
+      // On-demand from client — use user_id from request body
+      const userId = body.user_id
+      if (!userId) {
         return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'user_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } }
-      )
-      const { data: { user }, error } = await supabaseClient.auth.getUser()
-      if (error || !user) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-      userIds = [user.id]
+      userIds = [userId]
     }
 
     // Compute period
