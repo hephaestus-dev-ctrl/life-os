@@ -316,6 +316,224 @@ function AddCourseModal({ onClose, onAdd, defaultType = 'college' }) {
   )
 }
 
+// ── Calendar View ─────────────────────────────────────────────────────────────
+function CalendarView({ assignments, onToggleAssignment }) {
+  const [currentDate, setCurrentDate] = useState(() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
+  const [selectedDay, setSelectedDay] = useState(null)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const year  = currentDate.getFullYear()
+  const month = currentDate.getMonth()
+  const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+  // Build calendar grid cells (Mon–Sun week start)
+  const firstDow    = new Date(year, month, 1).getDay()           // 0=Sun
+  const startOffset = (firstDow + 6) % 7                          // Mon=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const daysInPrev  = new Date(year, month, 0).getDate()
+
+  const cells = []
+  for (let i = startOffset - 1; i >= 0; i--)
+    cells.push({ day: daysInPrev - i, current: false, date: new Date(year, month - 1, daysInPrev - i) })
+  for (let d = 1; d <= daysInMonth; d++)
+    cells.push({ day: d, current: true, date: new Date(year, month, d) })
+  const remaining = 42 - cells.length
+  for (let i = 1; i <= remaining; i++)
+    cells.push({ day: i, current: false, date: new Date(year, month + 1, i) })
+
+  const toKey = (date) => {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  const todayKey = toKey(today)
+
+  // Group assignments by due_date key
+  const byDate = {}
+  assignments.forEach((a) => {
+    if (!a.due_date) return
+    if (!byDate[a.due_date]) byDate[a.due_date] = []
+    byDate[a.due_date].push(a)
+  })
+
+  const handleDayClick = (cell) => {
+    const key = toKey(cell.date)
+    if (byDate[key]?.length) setSelectedDay(selectedDay === key ? null : key)
+  }
+
+  const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  return (
+    <div>
+      {/* Month navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <button
+          onClick={() => setCurrentDate(new Date(year, month - 1, 1))}
+          style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20, padding: '4px 10px', borderRadius: 6, lineHeight: 1 }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = TEXT)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = MUTED)}
+        >
+          ←
+        </button>
+        <h2 style={{ color: TEXT, fontSize: 18, fontWeight: 700, margin: 0 }}>{monthName}</h2>
+        <button
+          onClick={() => setCurrentDate(new Date(year, month + 1, 1))}
+          style={{ background: 'transparent', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20, padding: '4px 10px', borderRadius: 6, lineHeight: 1 }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = TEXT)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = MUTED)}
+        >
+          →
+        </button>
+      </div>
+
+      {/* Calendar grid */}
+      <div style={{ background: CARD, borderRadius: 16, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+        {/* Day-of-week headers */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+          {DAY_LABELS.map((d) => (
+            <div key={d} style={{
+              textAlign: 'center', padding: '10px 0',
+              color: MUTED, fontSize: 12, fontWeight: 600,
+              borderBottom: `1px solid ${BORDER}`,
+            }}>
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Day cells */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+          {cells.map((cell, idx) => {
+            const key          = toKey(cell.date)
+            const cellItems    = byDate[key] || []
+            const isToday      = key === todayKey
+            const isPast       = cell.date < today
+            const isSelected   = selectedDay === key
+            const hasItems     = cellItems.length > 0
+            const hasOverdue   = cellItems.some((a) => a.status === 'pending' && isPast && !isToday)
+            const visibleDots  = cellItems.slice(0, 3)
+            const extraCount   = cellItems.length - 3
+
+            return (
+              <div
+                key={idx}
+                onClick={() => handleDayClick(cell)}
+                style={{
+                  minHeight: 72,
+                  padding: '8px 6px',
+                  border: '1px solid rgba(255,255,255,0.04)',
+                  background: isSelected
+                    ? '#242736'
+                    : isToday
+                      ? 'rgba(99,102,241,0.2)'
+                      : 'transparent',
+                  boxShadow: isToday ? 'inset 0 0 0 1px #6366f1' : 'none',
+                  boxSizing: 'border-box',
+                  cursor: hasItems ? 'pointer' : 'default',
+                  opacity: !cell.current ? 0.3 : isPast && !isToday ? 0.5 : 1,
+                  transition: 'background 0.12s',
+                }}
+              >
+                {/* Date number */}
+                <div style={{
+                  width: 24, height: 24,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%',
+                  background: isToday ? 'rgba(99,102,241,0.4)' : 'transparent',
+                  fontSize: 13, fontWeight: isToday ? 700 : 400,
+                  color: hasOverdue ? '#ef4444' : cell.current ? '#e2e8f0' : '#6b7280',
+                }}>
+                  {cell.day}
+                </div>
+
+                {/* Assignment dots */}
+                {hasItems && (
+                  <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', marginTop: 5, alignItems: 'center' }}>
+                    {visibleDots.map((a, i) => (
+                      <span key={i} style={{
+                        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                        background: a.course?.color || ACCENT,
+                      }} />
+                    ))}
+                    {extraCount > 0 && (
+                      <span style={{ color: MUTED, fontSize: 10, lineHeight: 1 }}>+{extraCount}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Selected-day expanded section */}
+      {selectedDay && byDate[selectedDay] && (
+        <div style={{
+          marginTop: 16,
+          background: CARD, border: `1px solid ${BORDER}`,
+          borderRadius: 12, padding: 16,
+        }}>
+          <h4 style={{ color: TEXT, fontSize: 14, fontWeight: 700, margin: '0 0 12px' }}>
+            {new Date(selectedDay + 'T00:00:00').toLocaleDateString('en-US', {
+              weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+            })}
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {byDate[selectedDay].map((a) => {
+              const color     = a.course?.color || ACCENT
+              const isPastDue = a.due_date && new Date(a.due_date + 'T00:00:00') < today && a.status === 'pending'
+              return (
+                <div key={a.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  background: CARD2, borderRadius: 8, padding: '10px 12px',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={a.status === 'done'}
+                    onChange={() => onToggleAssignment(a.id, { status: a.status === 'done' ? 'pending' : 'done' })}
+                    style={{ width: 15, height: 15, accentColor: ACCENT, flexShrink: 0, marginTop: 3 }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      <span style={{ color: MUTED, fontSize: 12 }}>{a.course?.name || '—'}</span>
+                    </div>
+                    <span style={{
+                      color: a.status === 'done' ? MUTED : TEXT,
+                      fontSize: 14, fontWeight: 600,
+                      textDecoration: a.status === 'done' ? 'line-through' : 'none',
+                    }}>
+                      {a.title}
+                    </span>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 4, alignItems: 'center' }}>
+                      <span style={{ color: isPastDue ? '#ef4444' : MUTED, fontSize: 12 }}>
+                        Due: {formatDate(a.due_date)}{isPastDue ? ' — Overdue' : ''}
+                      </span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 600,
+                        color: a.status === 'done' ? '#34d399' : MUTED,
+                      }}>
+                        {a.status === 'done' ? 'Done' : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Education() {
   const edu      = useEducation()
@@ -373,7 +591,7 @@ export default function Education() {
         display: 'flex', gap: 2,
         borderBottom: `1px solid ${BORDER}`,
       }}>
-        {[['college', 'College'], ['self_paced', 'Self-Paced'], ['assignments', 'Assignments'], ['archived', 'Archived']].map(([key, label]) => (
+        {[['college', 'College'], ['self_paced', 'Self-Paced'], ['assignments', 'Assignments'], ['calendar', 'Calendar'], ['archived', 'Archived']].map(([key, label]) => (
           <button key={key} onClick={() => switchTab(key)} style={{
             padding: '8px 22px',
             borderRadius: '8px 8px 0 0',
@@ -618,6 +836,16 @@ export default function Education() {
               </section>
             ))}
           </div>
+        )}
+
+        {/* ════════════════════════════════════════
+            CALENDAR TAB
+        ════════════════════════════════════════ */}
+        {tab === 'calendar' && (
+          <CalendarView
+            assignments={edu.assignments}
+            onToggleAssignment={edu.updateAssignment}
+          />
         )}
 
         {/* ════════════════════════════════════════
