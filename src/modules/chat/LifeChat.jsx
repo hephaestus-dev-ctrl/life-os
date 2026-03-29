@@ -104,8 +104,8 @@ const SUGGESTED = [
   "What patterns do you notice in my life?",
 ]
 
-function formatTime(date) {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function getWelcome(session) {
@@ -127,7 +127,7 @@ export default function LifeChat({ session, messages, setMessages }) {
       setMessages([{
         role: 'assistant',
         content: getWelcome(session),
-        time: new Date(),
+        timestamp: Date.now(),
       }])
     }
   }, []) // eslint-disable-line
@@ -150,7 +150,7 @@ export default function LifeChat({ session, messages, setMessages }) {
     const trimmed = text.trim()
     if (!trimmed || loading) return
 
-    const userMsg = { role: 'user', content: trimmed, time: new Date() }
+    const userMsg = { role: 'user', content: trimmed, timestamp: Date.now() }
     const nextMessages = [...messages, userMsg]
     setMessages(nextMessages)
     setInput('')
@@ -169,8 +169,8 @@ export default function LifeChat({ session, messages, setMessages }) {
 
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.reply ?? '',
-        time: new Date(),
+        content: typeof data.reply === 'string' ? data.reply : String(data.reply ?? ''),
+        timestamp: Date.now(),
       }])
     } catch (err) {
       setError(err.message)
@@ -191,7 +191,7 @@ export default function LifeChat({ session, messages, setMessages }) {
     setMessages([{
       role: 'assistant',
       content: getWelcome(session),
-      time: new Date(),
+      timestamp: Date.now(),
     }])
     setConfirmClear(false)
     setError(null)
@@ -287,10 +287,10 @@ export default function LifeChat({ session, messages, setMessages }) {
                 fontSize: 14, lineHeight: 1.6,
               }}>
                 {msg.role === 'user'
-                  ? <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+                  ? <span style={{ whiteSpace: 'pre-wrap' }}>{typeof msg.content === 'string' ? msg.content : String(msg.content ?? '')}</span>
                   : <div
                       className="chat-md"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(typeof msg.content === 'string' ? msg.content : String(msg.content ?? '')) }}
                     />
                 }
               </div>
@@ -298,7 +298,7 @@ export default function LifeChat({ session, messages, setMessages }) {
                 fontSize: 11, color: MUTED, marginTop: 4,
                 textAlign: msg.role === 'user' ? 'right' : 'left',
               }}>
-                {msg.time ? formatTime(msg.time) : ''}
+                {msg.timestamp ? formatTime(msg.timestamp) : ''}
               </div>
             </div>
           </div>

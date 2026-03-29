@@ -12,14 +12,11 @@ export default function ChatBubble({ session, messages, setMessages }) {
   const [open, setOpen] = useState(false)
   const [hasUnread, setHasUnread] = useState(false)
   const panelRef = useRef(null)
+  const prevLenRef = useRef(messages.length)
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Hide bubble entirely on /chat page
-  if (location.pathname === '/chat') return null
-
-  // Track unread AI messages when closed
-  const prevLenRef = useRef(messages.length)
+  // All hooks must be declared before any early return (Rules of Hooks)
   useEffect(() => {
     if (!open && messages.length > prevLenRef.current) {
       const lastMsg = messages[messages.length - 1]
@@ -32,7 +29,6 @@ export default function ChatBubble({ session, messages, setMessages }) {
     if (open) setHasUnread(false)
   }, [open])
 
-  // Close on Escape
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') setOpen(false)
@@ -41,7 +37,6 @@ export default function ChatBubble({ session, messages, setMessages }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return
     function onMouseDown(e) {
@@ -52,6 +47,9 @@ export default function ChatBubble({ session, messages, setMessages }) {
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [open])
+
+  // Hide bubble on /chat page — after all hooks
+  if (location.pathname === '/chat') return null
 
   return (
     <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 40 }}>
