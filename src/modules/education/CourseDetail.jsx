@@ -528,6 +528,7 @@ export default function CourseDetail() {
   const [modal, setModal]           = useState(null) // 'addAssignment'|'addConcept'|'addBlock'|'logSession'
   const [showEditCourse, setShowEditCourse]       = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
+  const [archiveError, setArchiveError]             = useState(null)
   const [editGrade, setEditGrade]   = useState(false)
   const [gradeInput, setGradeInput] = useState('')
   const [gradeError, setGradeError] = useState(null)
@@ -654,16 +655,26 @@ export default function CourseDetail() {
             borderRadius: 8, padding: '12px 16px', marginBottom: 14,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
           }}>
-            <span style={{ color: '#fbbf24', fontSize: 13 }}>
-              Archive this course? It will be hidden from your active courses but all data will be preserved.
-            </span>
+            <div style={{ flex: 1 }}>
+              <span style={{ color: '#fbbf24', fontSize: 13 }}>
+                Archive this course? It will be hidden from your active courses but all data will be preserved.
+              </span>
+              {archiveError && (
+                <p style={{ color: '#f87171', fontSize: 12, margin: '6px 0 0' }}>Error: {archiveError}</p>
+              )}
+            </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-              <button onClick={() => setShowArchiveConfirm(false)} style={{
+              <button onClick={() => { setShowArchiveConfirm(false); setArchiveError(null) }} style={{
                 padding: '5px 12px', borderRadius: 6, background: 'transparent',
                 border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13,
               }}>Cancel</button>
               <button onClick={async () => {
-                await edu.updateCourse(courseId, { status: 'archived' })
+                const { error } = await edu.updateCourse(courseId, { status: 'archived' })
+                if (error) {
+                  console.error('Archive failed:', error)
+                  setArchiveError(error.message)
+                  return
+                }
                 navigate('/education')
               }} style={{
                 padding: '5px 14px', borderRadius: 6, background: 'rgba(245,158,11,0.2)',

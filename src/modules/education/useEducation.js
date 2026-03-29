@@ -58,10 +58,12 @@ export function useEducation() {
   }
 
   const updateCourse = async (id, payload) => {
+    const { data: { user } } = await supabase.auth.getUser()
     const { data, error } = await supabase
       .from('courses')
       .update(payload)
       .eq('id', id)
+      .eq('user_id', user.id)
       .select()
       .single()
     if (!error) setCourses((prev) => prev.map((c) => (c.id === id ? data : c)))
