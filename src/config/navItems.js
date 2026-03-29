@@ -10,6 +10,7 @@ import {
   StarIcon,
   ChartBarIcon,
   AcademicCapIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline'
 
 export const NAV_ITEMS = [
@@ -24,4 +25,5 @@ export const NAV_ITEMS = [
   { label: 'Education',   path: '/education',    icon: AcademicCapIcon },
   { label: 'Consistency', path: '/consistency',  icon: ChartBarIcon },
   { label: 'AI Review',   path: '/ai-review',    icon: StarIcon },
+  { label: 'Life Chat',   path: '/chat',         icon: ChatBubbleLeftRightIcon },
 ]

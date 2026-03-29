@@ -17,6 +17,7 @@ import Consistency from './modules/consistency/Consistency'
 import Education from './modules/education/Education'
 import CourseDetail from './modules/education/CourseDetail'
 import StudyNoteEditor from './modules/education/StudyNoteEditor'
+import ChatPage from './pages/ChatPage'
 
 function ProtectedRoute({ session, children }) {
   if (session === undefined) return null // still loading
@@ -26,6 +27,7 @@ function ProtectedRoute({ session, children }) {
 
 export default function App() {
   const [session, setSession] = useState(undefined)
+  const [chatMessages, setChatMessages] = useState([])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -58,7 +60,7 @@ export default function App() {
           path="/*"
           element={
             <ProtectedRoute session={session}>
-              <Layout session={session}>
+              <Layout session={session} chatMessages={chatMessages} setChatMessages={setChatMessages}>
                 <Routes>
                   <Route path="/" element={<Dashboard session={session} />} />
                   <Route path="/habits" element={<Habits />} />
@@ -76,6 +78,7 @@ export default function App() {
                   <Route path="/education/:courseId" element={<CourseDetail session={session} />} />
                   <Route path="/education/:courseId/notes/new" element={<StudyNoteEditor />} />
                   <Route path="/education/:courseId/notes/:noteId/edit" element={<StudyNoteEditor />} />
+                  <Route path="/chat" element={<ChatPage session={session} messages={chatMessages} setMessages={setChatMessages} />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Layout>

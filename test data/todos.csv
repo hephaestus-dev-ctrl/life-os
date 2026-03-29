@@ -1,0 +1,22 @@
+id,user_id,title,notes,due_date,priority,status,project,tags,created_at
+d3000001-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Schedule dentist appointment,,2026-02-15,medium,done,,,2026-01-28T10:00:00+00:00
+d3000002-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Buy birthday gift for mom,She mentioned wanting a new cookbook,2026-02-20,medium,done,,,2026-02-01T09:00:00+00:00
+d3000003-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Return library books,,2026-02-10,low,done,,,2026-02-03T08:00:00+00:00
+d3000004-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Fix leaky faucet in bathroom,Need to replace the washer — YouTube video saved,,high,done,Home,,2026-02-08T11:00:00+00:00
+d3000005-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Prepare Q1 report slides,Due for leadership review,2026-03-01,high,done,Work,,2026-02-20T09:00:00+00:00
+d3000007-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Replace smoke detector batteries,Three units need new batteries,2026-03-10,high,done,Home,,2026-03-01T08:00:00+00:00
+d3000009-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Draft performance review self-assessment,Due end of Q1,2026-04-01,high,done,Work,,2026-03-05T09:00:00+00:00
+d3000006-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Organize garage,Have been putting this off for months,2026-04-15,medium,done,Home,,2026-02-15T10:00:00+00:00
+d3000010-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Update project documentation,Three docs are still on the old template,2026-04-10,medium,done,Work,,2026-03-12T10:00:00+00:00
+d3000020-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Research competitor products for context,Three new tools launched in Q1,,medium,done,,,2026-03-26T14:00:00+00:00
+d3000008-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Deep clean oven,,,low,done,Home,,2026-03-10T09:00:00+00:00
+d3000011-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Grocery run,"Need produce, coffee, and olive oil",2026-03-28,medium,done,,,2026-03-26T08:00:00+00:00
+d3000012-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Call insurance company about claim,Reference number in email from Feb 12,2026-03-15,high,done,,,2026-03-10T09:00:00+00:00
+d3000015-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Renew car registration,Expired March 10 — do not forget,2026-03-10,high,done,,,2026-03-01T09:00:00+00:00
+d3000014-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Schedule annual physical,,2026-04-05,high,done,,,2026-03-15T10:00:00+00:00
+d3000019-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Plan spring hiking trip,Looking at mid-April weekend,2026-04-20,low,done,,,2026-03-25T09:00:00+00:00
+d3000018-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Finish reading The Daily Stoic summary,Saved in Pocket,,low,done,,,2026-03-22T21:00:00+00:00
+d3000017-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Review investment portfolio allocation,Has not been touched since last year,2026-03-31,medium,done,,,2026-03-20T10:00:00+00:00
+d3000016-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Order new running shoes,Current pair has 400+ miles,2026-04-01,medium,done,,,2026-03-18T11:00:00+00:00
+d3000013-0000-0000-0000-000000000001,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Research new laptop options,Current one is 4 years old,,low,done,,,2026-02-25T20:00:00+00:00
+670b664d-60ac-4bf6-98c4-0a912d470b2c,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Test,Test12,2026-03-26,medium,done,,,2026-03-27T23:19:32.421099+00:00

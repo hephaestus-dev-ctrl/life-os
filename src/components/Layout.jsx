@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import AISearch from '../modules/search/AISearch'
+import ChatBubble from '../modules/chat/ChatBubble'
 
-export default function Layout({ session, children }) {
+export default function Layout({ session, children, chatMessages, setChatMessages }) {
   const [searchOpen, setSearchOpen] = useState(false)
 
   // Cmd+K / Ctrl+K shortcut
@@ -35,6 +36,9 @@ export default function Layout({ session, children }) {
 
       {/* AI Search overlay */}
       <AISearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Floating chat bubble */}
+      <ChatBubble session={session} messages={chatMessages} setMessages={setChatMessages} />
     </div>
   )
 }

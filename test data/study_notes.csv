@@ -1,0 +1,46 @@
+id,user_id,course_id,title,content,created_at
+5c71d8a1-4131-44a3-811e-4995233ad044,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,6edd12a0-9e50-4b62-bbd6-1b4055f65982,OSI Model Layers,"Layer 7 Application — HTTP, FTP, DNS\nLayer 6 Presentation — Encryption, compression\nLayer 5 Session — Sessions between apps\nLayer 4 Transport — TCP/UDP, ports\nLayer 3 Network — IP addressing, routing\nLayer 2 Data Link — MAC addresses, switches\nLayer 1 Physical — Cables, hubs, signals",2026-03-28T17:54:29.642132+00:00
+6166bfaf-d50a-490d-84cc-5e3009c4dfe5,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,6edd12a0-9e50-4b62-bbd6-1b4055f65982,Common Attack Vectors,Phishing — social engineering via email\nMITM — intercept traffic between two parties\nDDoS — overwhelm a target with traffic\nSQL Injection — malicious SQL in input fields\nXSS — inject scripts into web pages\nBuffer Overflow — exceed memory buffer limits,2026-03-28T17:54:29.642132+00:00
+ef7a4482-f911-4d53-8d4f-52814c477be2,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,98856a69-3fde-4b04-bbcf-b2ec96789f12,Nmap Cheat Sheet,nmap -sV target — version detection\nnmap -O target — OS detection\nnmap -A target — aggressive scan\nnmap -p 1-65535 target — all ports\nnmap --script vuln target — vulnerability scan,2026-03-28T17:54:29.642132+00:00
+0864ac0d-3b2f-4608-a32c-8b6971ce2f69,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,98856a69-3fde-4b04-bbcf-b2ec96789f12,Metasploit Workflow,1. msfconsole — start Metasploit\n2. search <exploit> — find module\n3. use <module> — select module\n4. show options — view required params\n5. set RHOSTS <target> — set target\n6. set PAYLOAD — choose payload\n7. exploit — launch attack,2026-03-28T17:54:29.642132+00:00
+076dd8bf-1cc3-42bb-a77d-fa2a53430410,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,d2263f22-c586-423e-81bc-3ad70491e337,Security+ Domain Weights,"Threats, Attacks & Vulnerabilities — 24%\nArchitecture & Design — 21%\nImplementation — 25%\nOperations & Incident Response — 16%\nGovernance, Risk & Compliance — 14%",2026-03-28T17:54:29.642132+00:00
+e9943030-c27f-4503-bfc1-527bd270423d,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,d2263f22-c586-423e-81bc-3ad70491e337,Cryptography Basics,"Symmetric — same key for encrypt/decrypt (AES, DES)\nAsymmetric — public/private key pair (RSA, ECC)\nHashing — one-way function (SHA-256, MD5)\nPKI — infrastructure for managing digital certificates\nSSL/TLS — secure communication over networks",2026-03-28T17:54:29.642132+00:00
+a2887a11-0678-48d3-8334-cebfdc45c146,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,6edd12a0-9e50-4b62-bbd6-1b4055f65982,test,"# OSI Model — Network Security Notes
+
+## Overview
+The OSI model has **7 layers** that describe how data travels 
+across a network. Understanding each layer is *critical* for 
+identifying attack surfaces.
+
+## The 7 Layers
+
+1. Physical — cables, switches, hardware
+2. Data Link — MAC addresses, frames
+3. Network — IP addresses, routing
+4. Transport — TCP/UDP, ports
+5. Session — connections, authentication
+6. Presentation — encryption, compression
+7. Application — HTTP, DNS, FTP
+
+## Common Attacks by Layer
+
+- **Layer 2:** ARP Spoofing, MAC flooding
+- **Layer 3:** IP Spoofing, ICMP attacks
+- **Layer 4:** SYN flood, port scanning
+- **Layer 7:** SQL injection, XSS, phishing
+
+## Key Command
+```bash
+nmap -sV -p 1-1000 192.168.1.1
+```
+
+> Remember: Security is only as strong as the weakest layer.
+
+---
+
+## Study Checklist
+- [ ] Memorize all 7 layers
+- [ ] Understand TCP vs UDP
+- [ ] Practice with Wireshark
+sdkf aoie. aldkf 08h a",2026-03-28T20:35:30.335449+00:00
+57911801-4ff5-43d2-a869-49450cc849de,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,d2263f22-c586-423e-81bc-3ad70491e337,talkdjf al,lksdfhg'slkfdh'lk,2026-03-29T19:31:53.921419+00:00

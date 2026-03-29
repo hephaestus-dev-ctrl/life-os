@@ -1,0 +1,7 @@
+id,user_id,name,provider,course_type,status,grade_pct,url,notes,started_at,finished_at,created_at,color
+d2263f22-c586-423e-81bc-3ad70491e337,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,CompTIA Security+ Prep,Udemy,self_paced,in_progress,91,,,2026-02-01,,2026-03-28T17:54:29.642132+00:00,#6366f1
+717fb34a-ee2a-4455-80e4-26488715f3ca,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Python for Cybersecurity,YouTube / TCM Security,self_paced,wishlist,,,,,,2026-03-28T17:54:29.642132+00:00,#6366f1
+c96e4b9f-0a54-4ca8-96f5-1ffb80cd2e50,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,test,test2,self_paced,wishlist,,,,2026-03-31,,2026-03-29T17:45:22.560656+00:00,#6366f1
+6edd12a0-9e50-4b62-bbd6-1b4055f65982,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Network Security Fundamentals,State University,college,archived,87,,,2026-01-15,,2026-03-28T17:54:29.642132+00:00,#6366f1
+98856a69-3fde-4b04-bbcf-b2ec96789f12,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,Ethical Hacking & Penetration Testing,State University,college,in_progress,90,,,2026-01-15,,2026-03-28T17:54:29.642132+00:00,#6366f1
+61b6836b-c90e-42fd-9d64-8a9d49f266cd,7fdca7f5-83f4-4847-b214-9ed0ff55e3c5,test1,,self_paced,archived,,,,2026-03-31,,2026-03-29T18:08:45.145664+00:00,#ef4444
