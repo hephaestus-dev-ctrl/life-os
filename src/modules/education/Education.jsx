@@ -14,6 +14,11 @@ const ACCENT  = '#6366f1'
 const COLLEGE = '#6366f1'
 const SELFP   = '#10b981'
 
+const PRESET_COLORS = [
+  '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6',
+  '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b',
+]
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function letterGrade(pct) {
   if (pct == null) return null
@@ -78,6 +83,7 @@ function AddCourseModal({ onClose, onAdd, defaultType = 'college' }) {
   const [status, setStatus]        = useState('in_progress')
   const [url, setUrl]              = useState('')
   const [startedAt, setStartedAt]  = useState('')
+  const [color, setColor]          = useState('#6366f1')
   const [saving, setSaving]        = useState(false)
   const [error, setError]          = useState(null)
 
@@ -92,6 +98,7 @@ function AddCourseModal({ onClose, onAdd, defaultType = 'college' }) {
       status,
       url: url.trim() || null,
       started_at: startedAt || null,
+      color,
     })
     setSaving(false)
     if (error) { setError(error.message); return }
@@ -169,6 +176,23 @@ function AddCourseModal({ onClose, onAdd, defaultType = 'college' }) {
               value={startedAt} onChange={(e) => setStartedAt(e.target.value)}
               type="date" style={inputStyle({ colorScheme: 'dark' })}
             />
+          </div>
+          <div>
+            <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 8 }}>Color</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  style={{
+                    width: 24, height: 24, borderRadius: '50%', background: c,
+                    border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
+                    boxShadow: color === c ? `0 0 0 2px #0f1117, 0 0 0 4px #fff` : 'none',
+                  }}
+                />
+              ))}
+            </div>
           </div>
           {error && <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>{error}</p>}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
@@ -313,7 +337,7 @@ export default function Education() {
                   const courseAssignments = edu.assignments.filter((a) => a.course_id === course.id)
                   const courseNotes       = edu.studyNotes.filter((n) => n.course_id === course.id)
                   const courseConcepts    = edu.keyConcepts.filter((k) => k.course_id === course.id)
-                  const typeColor         = course.course_type === 'college' ? COLLEGE : SELFP
+                  const typeColor         = course.color || COLLEGE
                   const grade             = course.grade_pct != null ? Number(course.grade_pct) : null
 
                   return (
@@ -382,9 +406,9 @@ export default function Education() {
                         onClick={() => navigate(`/education/${course.id}`)}
                         style={{
                           padding: '8px 0', borderRadius: 8,
-                          background: 'rgba(99,102,241,0.1)',
-                          border: '1px solid rgba(99,102,241,0.25)',
-                          color: '#818cf8', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                          background: `${typeColor}1a`,
+                          border: `1px solid ${typeColor}40`,
+                          color: typeColor, cursor: 'pointer', fontSize: 13, fontWeight: 600,
                         }}
                       >
                         Open →
@@ -429,7 +453,7 @@ export default function Education() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {items.map((a) => {
                       const course    = getCourse(a.course_id)
-                      const typeColor = course?.course_type === 'college' ? COLLEGE : SELFP
+                      const typeColor = course?.color || COLLEGE
                       const pastDue   = a.due_date && new Date(a.due_date + 'T00:00:00') < today && a.status === 'pending'
 
                       return (

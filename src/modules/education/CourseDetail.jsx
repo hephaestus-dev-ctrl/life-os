@@ -15,6 +15,18 @@ const COLLEGE = '#6366f1'
 const SELFP   = '#10b981'
 const RED     = '#ef4444'
 
+const PRESET_COLORS = [
+  '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6',
+  '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b',
+]
+
+function colorAlpha(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function letterGrade(pct) {
   if (pct == null) return null
@@ -279,6 +291,90 @@ function LogSessionModal({ courseId, onClose, onLog }) {
   )
 }
 
+// ── Edit Course Modal ──────────────────────────────────────────────────────────
+function EditCourseModal({ course, onClose, onSave }) {
+  const [name, setName]         = useState(course.name)
+  const [provider, setProvider] = useState(course.provider || '')
+  const [status, setStatus]     = useState(course.status)
+  const [color, setColor]       = useState(course.color || '#6366f1')
+  const [gradePct, setGradePct] = useState(course.grade_pct != null ? String(course.grade_pct) : '')
+  const [url, setUrl]           = useState(course.url || '')
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState(null)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!name.trim()) return
+    setSaving(true)
+    const updates = {
+      name: name.trim(),
+      provider: provider.trim() || null,
+      status,
+      color,
+      grade_pct: gradePct !== '' ? parseFloat(gradePct) : null,
+      url: url.trim() || null,
+    }
+    const { error } = await onSave(updates)
+    setSaving(false)
+    if (error) { setError(error.message); return }
+    onClose()
+  }
+
+  return (
+    <Modal title="Edit Course" onClose={onClose}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 4 }}>Course Name *</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} required style={inputStyle()} />
+        </div>
+        <div>
+          <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 4 }}>Provider / Institution</label>
+          <input value={provider} onChange={(e) => setProvider(e.target.value)} placeholder="e.g. MIT OpenCourseWare" style={inputStyle()} />
+        </div>
+        <div>
+          <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 4 }}>Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle()}>
+            <option value="in_progress">In Progress</option>
+            <option value="finished">Finished</option>
+            <option value="wishlist">Wishlist</option>
+          </select>
+        </div>
+        <div>
+          <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 8 }}>Color</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                style={{
+                  width: 24, height: 24, borderRadius: '50%', background: c,
+                  border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
+                  boxShadow: color === c ? '0 0 0 2px #0f1117, 0 0 0 4px #fff' : 'none',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        <div>
+          <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 4 }}>Grade % (optional)</label>
+          <input
+            value={gradePct} onChange={(e) => setGradePct(e.target.value)}
+            type="number" min="0" max="100" step="0.1" placeholder="0–100"
+            style={inputStyle()}
+          />
+        </div>
+        <div>
+          <label style={{ color: MUTED, fontSize: 12, display: 'block', marginBottom: 4 }}>URL (optional)</label>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." type="url" style={inputStyle()} />
+        </div>
+        {error && <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>{error}</p>}
+        <SaveCancel onCancel={onClose} saving={saving} disabled={!name.trim()} label="Save Changes" />
+      </form>
+    </Modal>
+  )
+}
+
 // ── Tab Button ────────────────────────────────────────────────────────────────
 function TabBtn({ active, onClick, children }) {
   return (
@@ -340,6 +436,7 @@ export default function CourseDetail() {
 
   const [tab, setTab]               = useState(location.state?.tab || 'assignments')
   const [modal, setModal]           = useState(null) // 'addAssignment'|'addConcept'|'addBlock'|'logSession'
+  const [showEditCourse, setShowEditCourse] = useState(false)
   const [editGrade, setEditGrade]   = useState(false)
   const [gradeInput, setGradeInput] = useState('')
   const [gradeError, setGradeError] = useState(null)
@@ -375,7 +472,7 @@ export default function CourseDetail() {
     )
   }
 
-  const typeColor = course.course_type === 'college' ? COLLEGE : SELFP
+  const typeColor = course.color || ACCENT
   const grade     = course.grade_pct != null ? Number(course.grade_pct) : null
 
   // Filtered data for this course
@@ -451,7 +548,7 @@ export default function CourseDetail() {
             )}
             <div style={{ display: 'flex', gap: 8, paddingLeft: 16 }}>
               <span style={{
-                background: course.course_type === 'college' ? 'rgba(99,102,241,0.15)' : 'rgba(16,185,129,0.15)',
+                background: colorAlpha(typeColor, 0.15),
                 color: typeColor, padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
               }}>
                 {course.course_type === 'college' ? 'College' : 'Self-Paced'}
@@ -481,11 +578,18 @@ export default function CourseDetail() {
               <span style={{ color: MUTED, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Grade
               </span>
-              <button onClick={() => { setEditGrade(!editGrade); setGradeInput(grade?.toString() ?? ''); setGradeError(null) }} style={{
-                background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, padding: 2,
-              }}>
-                <PencilIcon style={{ width: 13, height: 13 }} />
-              </button>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={() => setShowEditCourse(true)} title="Edit course" style={{
+                  background: 'transparent', border: 'none', cursor: 'pointer', color: MUTED, padding: 2,
+                }}>
+                  <PencilIcon style={{ width: 13, height: 13 }} />
+                </button>
+                <button onClick={() => { setEditGrade(!editGrade); setGradeInput(grade?.toString() ?? ''); setGradeError(null) }} title="Edit grade" style={{
+                  background: 'transparent', border: `1px solid ${BORDER}`, cursor: 'pointer', color: MUTED, padding: '1px 6px', borderRadius: 4, fontSize: 11,
+                }}>
+                  %
+                </button>
+              </div>
             </div>
 
             {editGrade ? (
@@ -829,6 +933,13 @@ export default function CourseDetail() {
       )}
       {modal === 'logSession' && (
         <LogSessionModal courseId={courseId} onClose={() => setModal(null)} onLog={edu.logStudySession} />
+      )}
+      {showEditCourse && (
+        <EditCourseModal
+          course={course}
+          onClose={() => setShowEditCourse(false)}
+          onSave={(updates) => edu.updateCourse(courseId, updates)}
+        />
       )}
     </div>
   )
