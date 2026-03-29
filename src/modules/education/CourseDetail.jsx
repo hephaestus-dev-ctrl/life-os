@@ -1088,7 +1088,11 @@ export default function CourseDetail() {
         <EditCourseModal
           course={course}
           onClose={() => setShowEditCourse(false)}
-          onSave={(updates) => edu.updateCourse(courseId, updates)}
+          onSave={async (updates) => {
+            const { error } = await edu.updateCourse(courseId, updates)
+            if (!error) setShowEditCourse(false)
+            return { error }
+          }}
         />
       )}
     </div>
