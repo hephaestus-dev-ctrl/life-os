@@ -21,12 +21,13 @@ function scoreLabel(score) {
 function LineChart({ data, height = 120 }) {
   if (!data?.length) return null
 
-  const w    = 600
-  const h    = height
-  const padX = 4
-  const padY = 8
-  const chartW = w - padX * 2
-  const chartH = h - padY * 2
+  const w         = 600
+  const h         = height
+  const padX      = 32
+  const padXRight = 8
+  const padY      = 8
+  const chartW    = w - padX - padXRight
+  const chartH    = h - padY * 2
 
   const maxVal = 100
   const minVal = 0
@@ -46,6 +47,8 @@ function LineChart({ data, height = 120 }) {
     'Z',
   ].join(' ')
 
+  const yTicks = [0, 25, 50, 75, 100]
+
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
       <defs>
@@ -54,6 +57,16 @@ function LineChart({ data, height = 120 }) {
           <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
         </linearGradient>
       </defs>
+      {/* Y-axis gridlines and labels */}
+      {yTicks.map((v) => {
+        const y = padY + chartH - (v / 100) * chartH
+        return (
+          <g key={v}>
+            <line x1={padX} y1={y} x2={w - padXRight} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+            <text x={padX - 4} y={y} dy="0.35em" fontSize="10" fill="#4b5563" textAnchor="end">{v}</text>
+          </g>
+        )
+      })}
       {/* Area fill */}
       <path d={areaD} fill="url(#lineGrad)" />
       {/* Line */}
@@ -282,21 +295,39 @@ export default function Consistency({ session }) {
             </p>
             <LineChart data={data.dailyScores} height={120} />
 
-            {/* x-axis labels: first, mid, last */}
-            {data.dailyScores.length > 1 && (
-              <div className="flex justify-between mt-1">
-                {[0, Math.floor((data.dailyScores.length - 1) / 2), data.dailyScores.length - 1].map((idx) => (
-                  <p key={idx} className="text-[10px] text-gray-700">
-                    {new Date(data.dailyScores[idx].date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </p>
-                ))}
-              </div>
-            )}
+            {/* x-axis labels: weekly intervals */}
+            {data.dailyScores.length > 1 && (() => {
+              const n = data.dailyScores.length
+              const svgW = 600
+              const svgPadX = 32
+              const svgPadXRight = 8
+              const svgChartW = svgW - svgPadX - svgPadXRight
+              const indices = []
+              for (let i = 0; i < n; i += 7) indices.push(i)
+              if (indices[indices.length - 1] !== n - 1) indices.push(n - 1)
+              return (
+                <div className="relative mt-1" style={{ height: 16 }}>
+                  {indices.map((idx) => {
+                    const leftPct = ((svgPadX + (idx / Math.max(n - 1, 1)) * svgChartW) / svgW) * 100
+                    return (
+                      <span
+                        key={idx}
+                        className="absolute text-[10px] text-gray-700 -translate-x-1/2"
+                        style={{ left: `${leftPct}%` }}
+                      >
+                        {new Date(data.dailyScores[idx].date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </div>
 
           {/* Per-module breakdown */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Habits */}
+            <Link to="/habits" className="block hover:-translate-y-px transition-all">
             <BreakdownCard title="Habits" accent="#6366f1">
               <div className="mb-3 flex items-center gap-3">
                 <div>
@@ -335,8 +366,10 @@ export default function Consistency({ session }) {
                 </div>
               )}
             </BreakdownCard>
+            </Link>
 
             {/* Journal */}
+            <Link to="/journal" className="block hover:-translate-y-px transition-all">
             <BreakdownCard title="Journal" accent="#f59e0b">
               <div className="mb-3 flex items-center gap-3">
                 <div>
@@ -376,8 +409,10 @@ export default function Consistency({ session }) {
                 <p className="text-xs text-gray-600">No mood data recorded.</p>
               )}
             </BreakdownCard>
+            </Link>
 
             {/* Workouts */}
+            <Link to="/workouts" className="block hover:-translate-y-px transition-all">
             <BreakdownCard title="Workouts" accent="#10b981">
               {data.workoutStats.sessionsPerWeek.length > 0 ? (
                 <>
@@ -397,8 +432,10 @@ export default function Consistency({ session }) {
                 <p className="text-xs text-gray-600">No workouts logged yet.</p>
               )}
             </BreakdownCard>
+            </Link>
 
             {/* Chores */}
+            <Link to="/chores" className="block hover:-translate-y-px transition-all">
             <BreakdownCard title="Chores" accent="#14b8a6">
               {data.choreStats.onTimeRate !== null ? (
                 <div>
@@ -422,6 +459,7 @@ export default function Consistency({ session }) {
                 <p className="text-xs text-gray-600">No chores tracked.</p>
               )}
             </BreakdownCard>
+            </Link>
           </div>
 
           {/* Link to AI Review */}
