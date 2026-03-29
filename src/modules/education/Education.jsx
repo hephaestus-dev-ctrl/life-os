@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { useEducation } from './useEducation'
 import { supabase } from '../../lib/supabase'
@@ -537,8 +537,9 @@ function CalendarView({ assignments, onToggleAssignment }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Education() {
   const edu      = useEducation()
-  const navigate = useNavigate()
-  const [tab, setTab]               = useState('college')
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const [tab, setTab]               = useState(location.state?.tab || 'college')
   const [filter, setFilter]         = useState('all')
   const [showAddCourse, setAdd]     = useState(false)
 

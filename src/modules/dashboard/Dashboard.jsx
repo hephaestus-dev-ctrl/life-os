@@ -175,10 +175,11 @@ function StatCard({ to, label, value, sub, alert, borderColor }) {
 
 // ── Attention card ────────────────────────────────────────────
 
-function AttentionCard({ to, label, accentClass, children }) {
+function AttentionCard({ to, state, label, accentClass, children }) {
   return (
     <Link
       to={to}
+      state={state}
       className="block bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 hover:-translate-y-px transition-all"
     >
       <p className={`text-[11px] font-semibold uppercase tracking-[0.06em] mb-3 ${accentClass}`}>
@@ -496,6 +497,7 @@ export default function Dashboard({ session }) {
                 <AttentionCard
                   key="assignments"
                   to="/education"
+                  state={{ tab: 'assignments' }}
                   label="Assignments"
                   accentClass="text-indigo-400"
                 >
