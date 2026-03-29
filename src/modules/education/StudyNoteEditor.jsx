@@ -126,6 +126,7 @@ export default function StudyNoteEditor() {
   const [courseName, setCourseName] = useState('')
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
+  const [mode, setMode]       = useState(isNew ? 'edit' : 'preview')
   const fileInputRef = useRef(null)
 
   // Fetch course name + note data (if editing)
@@ -225,8 +226,28 @@ export default function StudyNoteEditor() {
           {isNew ? 'New Note' : (title || 'Edit Note')}
         </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {error && <span style={{ color: '#f87171', fontSize: 12 }}>{error}</span>}
+
+          {/* Edit / Preview toggle */}
+          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+            {['edit', 'preview'].map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                style={{
+                  padding: '7px 16px', border: 'none', cursor: 'pointer', fontSize: 13,
+                  fontWeight: 600,
+                  background: mode === m ? ACCENT : 'transparent',
+                  color: mode === m ? '#fff' : MUTED,
+                  borderRadius: m === 'edit' ? '7px 0 0 7px' : '0 7px 7px 0',
+                }}
+              >
+                {m.charAt(0).toUpperCase() + m.slice(1)}
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={handleSave}
             disabled={saving || !title.trim()}
@@ -241,109 +262,94 @@ export default function StudyNoteEditor() {
         </div>
       </div>
 
-      {/* ── Editor + Preview ── */}
-      <div style={{
-        display: 'flex', flex: 1, overflow: 'hidden',
-        flexWrap: 'wrap',
-      }}>
+      {/* ── Single pane ── */}
+      <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* LEFT — Editor pane */}
-        <div style={{
-          flex: '1 1 320px', display: 'flex', flexDirection: 'column',
-          borderRight: `1px solid ${BORDER}`, minWidth: 0,
-        }}>
-          {/* Course label */}
-          <div style={{ padding: '10px 20px 0', flexShrink: 0 }}>
-            <span style={{ color: MUTED, fontSize: 12 }}>{courseName}</span>
-          </div>
+        {mode === 'edit' ? (
+          <>
+            {/* Course label */}
+            <div style={{ padding: '10px 20px 0', flexShrink: 0 }}>
+              <span style={{ color: MUTED, fontSize: 12 }}>{courseName}</span>
+            </div>
 
-          {/* Title input */}
-          <div style={{ padding: '8px 20px', flexShrink: 0 }}>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Note title..."
+            {/* Title input */}
+            <div style={{ padding: '8px 20px', flexShrink: 0 }}>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Note title..."
+                style={{
+                  width: '100%', background: 'transparent', border: 'none',
+                  color: TEXT, fontSize: 22, fontWeight: 700, outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: BORDER, flexShrink: 0, margin: '0 20px' }} />
+
+            {/* Content textarea */}
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder={'Write your notes here...\nMarkdown supported: # headers, **bold**, - lists, `code`'}
               style={{
-                width: '100%', background: 'transparent', border: 'none',
-                color: TEXT, fontSize: 22, fontWeight: 700, outline: 'none',
-                boxSizing: 'border-box',
+                flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                color: TEXT, fontSize: 14, lineHeight: 1.75, resize: 'none',
+                fontFamily: "'Courier New', Courier, monospace",
+                padding: '16px 20px', boxSizing: 'border-box', minHeight: 200,
               }}
             />
-          </div>
 
-          {/* Divider */}
-          <div style={{ height: 1, background: BORDER, flexShrink: 0, margin: '0 20px' }} />
-
-          {/* Content textarea */}
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder={'Write your notes here...\nMarkdown supported: # headers, **bold**, - lists, `code`'}
-            style={{
-              flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              color: TEXT, fontSize: 14, lineHeight: 1.75, resize: 'none',
-              fontFamily: "'Courier New', Courier, monospace",
-              padding: '16px 20px', boxSizing: 'border-box', minHeight: 200,
-            }}
-          />
-
-          {/* Import tools */}
-          <div style={{
-            padding: '12px 20px', borderTop: `1px solid ${BORDER}`,
-            display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap',
-          }}>
-            <button
-              onClick={pasteFromClipboard}
-              style={{
-                padding: '6px 14px', borderRadius: 8, fontSize: 13,
-                background: CARD2, border: `1px solid ${BORDER}`,
-                color: MUTED, cursor: 'pointer',
-              }}
-            >
-              📋 Paste from clipboard
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                padding: '6px 14px', borderRadius: 8, fontSize: 13,
-                background: CARD2, border: `1px solid ${BORDER}`,
-                color: MUTED, cursor: 'pointer',
-              }}
-            >
-              📄 Import .txt file
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.md"
-              onChange={importFile}
-              style={{ display: 'none' }}
+            {/* Import tools */}
+            <div style={{
+              padding: '12px 20px', borderTop: `1px solid ${BORDER}`,
+              display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap',
+            }}>
+              <button
+                onClick={pasteFromClipboard}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, fontSize: 13,
+                  background: CARD2, border: `1px solid ${BORDER}`,
+                  color: MUTED, cursor: 'pointer',
+                }}
+              >
+                📋 Paste from clipboard
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, fontSize: 13,
+                  background: CARD2, border: `1px solid ${BORDER}`,
+                  color: MUTED, cursor: 'pointer',
+                }}
+              >
+                📄 Import .txt file
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md"
+                onChange={importFile}
+                style={{ display: 'none' }}
+              />
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
+            <div style={{ color: MUTED, fontSize: 12, marginBottom: 8 }}>{courseName}</div>
+            <h1 style={{ color: TEXT, fontSize: 26, fontWeight: 700, margin: '0 0 16px' }}>
+              {title || <span style={{ color: MUTED, fontStyle: 'italic' }}>Untitled</span>}
+            </h1>
+            <div style={{ height: 1, background: BORDER, marginBottom: 20 }} />
+            <div
+              className="md-preview"
+              style={{ lineHeight: 1.7 }}
+              dangerouslySetInnerHTML={{ __html: previewHtml || `<p style="color:${MUTED};font-style:italic">Nothing to preview yet…</p>` }}
             />
           </div>
-        </div>
-
-        {/* RIGHT — Preview pane */}
-        <div style={{
-          flex: '1 1 320px', display: 'flex', flexDirection: 'column',
-          minWidth: 0, overflow: 'hidden',
-        }}>
-          <div style={{
-            padding: '10px 20px', borderBottom: `1px solid ${BORDER}`,
-            flexShrink: 0,
-          }}>
-            <span style={{ color: MUTED, fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Preview
-            </span>
-          </div>
-          <div
-            className="md-preview"
-            style={{
-              flex: 1, overflowY: 'auto', padding: '16px 24px',
-              lineHeight: 1.7,
-            }}
-            dangerouslySetInnerHTML={{ __html: previewHtml || `<p style="color:${MUTED};font-style:italic">Nothing to preview yet…</p>` }}
-          />
-        </div>
+        )}
       </div>
     </div>
   )
