@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useConsistency } from './useConsistency'
+import DataExport from './DataExport'
 
 // ── Score colour ──────────────────────────────────────────────
 
@@ -467,6 +468,8 @@ export default function Consistency({ session }) {
               </p>
             </div>
           </Link>
+
+          <DataExport userId={session?.user?.id} />
         </div>
       )}
     </div>
