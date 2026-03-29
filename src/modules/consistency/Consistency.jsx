@@ -23,7 +23,7 @@ function LineChart({ data, height = 120 }) {
 
   const w         = 600
   const h         = height
-  const padX      = 32
+  const padX      = 8
   const padXRight = 8
   const padY      = 8
   const chartW    = w - padX - padXRight
@@ -63,7 +63,7 @@ function LineChart({ data, height = 120 }) {
         return (
           <g key={v}>
             <line x1={padX} y1={y} x2={w - padXRight} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-            <text x={padX - 4} y={y} dy="0.35em" fontSize="10" fill="#4b5563" textAnchor="end">{v}</text>
+            <text x={4} y={y} dy="0.35em" fontSize="10" fill="#4b5563" textAnchor="start" opacity="0.6">{v}</text>
           </g>
         )
       })}
@@ -145,7 +145,7 @@ export function ConsistencyMiniChart({ dailyScores, className = 'h-8', count = 7
 function BreakdownCard({ title, accent, children }) {
   return (
     <div
-      className="rounded-2xl p-5"
+      className="rounded-2xl p-5 h-full"
       style={{
         backgroundColor: '#1e2130',
         border: '1px solid rgba(255,255,255,0.07)',
@@ -299,7 +299,7 @@ export default function Consistency({ session }) {
             {data.dailyScores.length > 1 && (() => {
               const n = data.dailyScores.length
               const svgW = 600
-              const svgPadX = 32
+              const svgPadX = 8
               const svgPadXRight = 8
               const svgChartW = svgW - svgPadX - svgPadXRight
               const indices = []
@@ -327,7 +327,7 @@ export default function Consistency({ session }) {
           {/* Per-module breakdown */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Habits */}
-            <Link to="/habits" className="block hover:-translate-y-px transition-all">
+            <Link to="/habits" className="block hover:-translate-y-px transition-all h-full" style={{ minHeight: '180px' }}>
             <BreakdownCard title="Habits" accent="#6366f1">
               <div className="mb-3 flex items-center gap-3">
                 <div>
@@ -369,7 +369,7 @@ export default function Consistency({ session }) {
             </Link>
 
             {/* Journal */}
-            <Link to="/journal" className="block hover:-translate-y-px transition-all">
+            <Link to="/journal" className="block hover:-translate-y-px transition-all h-full" style={{ minHeight: '180px' }}>
             <BreakdownCard title="Journal" accent="#f59e0b">
               <div className="mb-3 flex items-center gap-3">
                 <div>
@@ -412,7 +412,7 @@ export default function Consistency({ session }) {
             </Link>
 
             {/* Workouts */}
-            <Link to="/workouts" className="block hover:-translate-y-px transition-all">
+            <Link to="/workouts" className="block hover:-translate-y-px transition-all h-full" style={{ minHeight: '180px' }}>
             <BreakdownCard title="Workouts" accent="#10b981">
               {data.workoutStats.sessionsPerWeek.length > 0 ? (
                 <>
@@ -435,7 +435,7 @@ export default function Consistency({ session }) {
             </Link>
 
             {/* Chores */}
-            <Link to="/chores" className="block hover:-translate-y-px transition-all">
+            <Link to="/chores" className="block hover:-translate-y-px transition-all h-full" style={{ minHeight: '180px' }}>
             <BreakdownCard title="Chores" accent="#14b8a6">
               {data.choreStats.onTimeRate !== null ? (
                 <div>
