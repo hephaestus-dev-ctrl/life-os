@@ -717,6 +717,20 @@ export default function CourseDetail() {
                 )
               })()}
             </div>
+            <div style={{ paddingLeft: 16, marginTop: 10 }}>
+              <button
+                onClick={() => setShowEditCourse(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: '#242736',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  color: '#9ca3af',
+                }}
+              >
+                <PencilIcon className="w-3.5 h-3.5" />
+                Edit Course
+              </button>
+            </div>
           </div>
 
           {/* Grade section */}
