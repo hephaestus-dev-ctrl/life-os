@@ -71,10 +71,10 @@ function inputStyle(extra = {}) {
 }
 
 // ── Add Course Modal ──────────────────────────────────────────────────────────
-function AddCourseModal({ onClose, onAdd }) {
+function AddCourseModal({ onClose, onAdd, defaultType = 'college' }) {
   const [name, setCName]           = useState('')
   const [provider, setProvider]   = useState('')
-  const [courseType, setType]      = useState('college')
+  const [courseType, setType]      = useState(defaultType)
   const [status, setStatus]        = useState('in_progress')
   const [url, setUrl]              = useState('')
   const [startedAt, setStartedAt]  = useState('')
@@ -194,9 +194,11 @@ function AddCourseModal({ onClose, onAdd }) {
 export default function Education() {
   const edu      = useEducation()
   const navigate = useNavigate()
-  const [tab, setTab]               = useState('courses')
+  const [tab, setTab]               = useState('college')
   const [filter, setFilter]         = useState('all')
   const [showAddCourse, setAdd]     = useState(false)
+
+  const switchTab = (key) => { setTab(key); setFilter('all') }
 
   if (edu.loading) {
     return (
@@ -210,8 +212,12 @@ export default function Education() {
     )
   }
 
+  const typedCourses =
+    tab === 'college'    ? edu.courses.filter((c) => c.course_type === 'college') :
+    tab === 'self_paced' ? edu.courses.filter((c) => c.course_type === 'self_paced') :
+    edu.courses
   const filteredCourses =
-    filter === 'all' ? edu.courses : edu.courses.filter((c) => c.status === filter)
+    filter === 'all' ? typedCourses : typedCourses.filter((c) => c.status === filter)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -238,8 +244,8 @@ export default function Education() {
         display: 'flex', gap: 2,
         borderBottom: `1px solid ${BORDER}`,
       }}>
-        {[['courses', 'Courses'], ['assignments', 'Assignments']].map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} style={{
+        {[['college', 'College'], ['self_paced', 'Self-Paced'], ['assignments', 'Assignments']].map(([key, label]) => (
+          <button key={key} onClick={() => switchTab(key)} style={{
             padding: '8px 22px',
             borderRadius: '8px 8px 0 0',
             fontSize: 14, fontWeight: 600,
@@ -257,9 +263,9 @@ export default function Education() {
       <div style={{ padding: '24px 24px' }}>
 
         {/* ════════════════════════════════════════
-            COURSES TAB
+            COLLEGE / SELF-PACED TABS
         ════════════════════════════════════════ */}
-        {tab === 'courses' && (
+        {(tab === 'college' || tab === 'self_paced') && (
           <>
             {/* Filter row + Add button */}
             <div style={{
@@ -279,7 +285,7 @@ export default function Education() {
                   </button>
                 ))}
               </div>
-              <button onClick={() => setAdd(true)} style={{
+              <button onClick={() => setAdd(tab)} style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '8px 16px', borderRadius: 8, background: ACCENT,
                 border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600,
@@ -487,7 +493,7 @@ export default function Education() {
       </div>
 
       {showAddCourse && (
-        <AddCourseModal onClose={() => setAdd(false)} onAdd={edu.addCourse} />
+        <AddCourseModal onClose={() => setAdd(false)} onAdd={edu.addCourse} defaultType={showAddCourse} />
       )}
     </div>
   )
