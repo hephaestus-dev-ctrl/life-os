@@ -58,6 +58,7 @@ function useDashboardSummary(userId) {
         meetingTopicsRes,
         readingRes,
         finishedRes,
+        assignmentsRes,
       ] = await Promise.all([
         supabase.from('habits').select('id, name').eq('user_id', userId).is('routine_type', null),
         supabase.from('habit_logs').select('habit_id').eq('user_id', userId).eq('completed_date', today),
@@ -69,6 +70,7 @@ function useDashboardSummary(userId) {
         supabase.from('meeting_topics').select('id, content').eq('user_id', userId).eq('status', 'pending').eq('archived', false).order('created_at', { ascending: false }),
         supabase.from('books').select('title').eq('user_id', userId).eq('status', 'reading').order('created_at', { ascending: false }).limit(1),
         supabase.from('books').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'finished'),
+        supabase.from('assignments').select('id, title, due_date, status, course_id, courses(name, color, course_type)').eq('user_id', userId).eq('status', 'pending').order('due_date', { ascending: true }).limit(5),
       ])
 
       // ── Habits ──
@@ -116,6 +118,8 @@ function useDashboardSummary(userId) {
       const currentlyReading = readingRes.data?.[0]?.title ?? null
       const booksFinished    = finishedRes.count ?? 0
 
+      const upcomingAssignments = assignmentsRes.data ?? []
+
       setSummary({
         habitTotal, habitCompleted, incompleteHabits,
         overdueTodos, dueTodayTodos,
@@ -123,6 +127,7 @@ function useDashboardSummary(userId) {
         hasJournalToday,
         pendingTopics,
         currentlyReading, booksFinished,
+        upcomingAssignments,
       })
     }
 
@@ -309,6 +314,79 @@ function ConsistencyHero({ userId }) {
   )
 }
 
+// ── Upcoming Assignments widget ───────────────────────────────
+
+function UpcomingAssignmentsWidget({ assignments }) {
+  const today = todayStr()
+
+  if (!assignments || assignments.length === 0) {
+    return (
+      <div
+        className="rounded-2xl px-5 py-4 mb-6"
+        style={{ backgroundColor: '#1e2130', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
+            Upcoming Assignments
+          </p>
+          <Link to="/education" className="text-xs text-indigo-400 hover:text-indigo-300">
+            View all →
+          </Link>
+        </div>
+        <p className="text-sm text-gray-600">No upcoming assignments.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="rounded-2xl px-5 py-4 mb-6"
+      style={{ backgroundColor: '#1e2130', border: '1px solid rgba(255,255,255,0.07)' }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
+          Upcoming Assignments
+        </p>
+        <Link to="/education" className="text-xs text-indigo-400 hover:text-indigo-300">
+          View all →
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {assignments.map((a) => {
+          const overdue = a.due_date && a.due_date < today
+          const courseColor = a.courses?.color || '#6366f1'
+          return (
+            <div
+              key={a.id}
+              className="flex items-center gap-3 py-2 px-3 rounded-xl"
+              style={{ backgroundColor: '#242736' }}
+            >
+              <div
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: courseColor }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-200 truncate">{a.title}</p>
+                <p className="text-xs text-gray-600 truncate">
+                  {a.courses?.name}
+                </p>
+              </div>
+              {a.due_date && (
+                <p className={`text-xs flex-shrink-0 font-medium ${
+                  overdue ? 'text-red-400' : 'text-gray-500'
+                }`}>
+                  {overdue ? 'Overdue' : new Date(a.due_date + 'T00:00:00')
+                    .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────
 
 export default function Dashboard({ session }) {
@@ -397,6 +475,9 @@ export default function Dashboard({ session }) {
               sub="total"
             />
           </div>
+
+          {/* ── Upcoming Assignments ── */}
+          <UpcomingAssignmentsWidget assignments={s.upcomingAssignments} />
 
           {/* ── Needs attention ── */}
           <h2 className="text-[11px] font-semibold text-gray-700 uppercase tracking-[0.06em] mb-4">
