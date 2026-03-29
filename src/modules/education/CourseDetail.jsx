@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, PlusIcon, TrashIcon, PencilIcon, CheckIcon, XMarkIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline'
 import { useEducation } from './useEducation'
+import { supabase } from '../../lib/supabase'
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 const BG      = '#0f1117'
@@ -25,6 +26,94 @@ function colorAlpha(hex, alpha) {
   const g = parseInt(hex.slice(3, 5), 16)
   const b = parseInt(hex.slice(5, 7), 16)
   return `rgba(${r},${g},${b},${alpha})`
+}
+
+// ── Export helpers ────────────────────────────────────────────────────────────
+async function exportCourseMarkdown(course) {
+  const [
+    { data: assignments },
+    { data: notes },
+    { data: concepts },
+    { data: sessions },
+  ] = await Promise.all([
+    supabase.from('assignments').select('*').eq('course_id', course.id).order('due_date'),
+    supabase.from('study_notes').select('*').eq('course_id', course.id).order('created_at'),
+    supabase.from('key_concepts').select('*').eq('course_id', course.id).order('created_at'),
+    supabase.from('study_sessions').select('*').eq('course_id', course.id).order('session_date'),
+  ])
+
+  function lg(pct) {
+    if (pct == null) return ''
+    if (pct >= 90) return 'A'; if (pct >= 80) return 'B'
+    if (pct >= 70) return 'C'; if (pct >= 60) return 'D'; return 'F'
+  }
+  const grade = course.grade_pct != null
+    ? `${Number(course.grade_pct).toFixed(1)}% (${lg(Number(course.grade_pct))})`
+    : 'N/A'
+
+  let md = `# ${course.name}\n`
+  if (course.provider) md += `Provider: ${course.provider}\n`
+  md += `Status: ${course.status} | Type: ${course.course_type}\nGrade: ${grade}\n\n`
+  md += `## Assignments\n`
+  if (!assignments?.length) md += '_None_\n\n'
+  else { assignments.forEach((a) => { md += `- ${a.title} — Due: ${a.due_date || 'N/A'} — ${a.status}\n` }); md += '\n' }
+  md += `## Study Notes\n`
+  if (!notes?.length) md += '_None_\n\n'
+  else notes.forEach((n) => { md += `### ${n.title}\n${n.content || ''}\n\n` })
+  md += `## Key Concepts\n`
+  if (!concepts?.length) md += '_None_\n\n'
+  else { concepts.forEach((k) => { md += `**${k.term}**: ${k.definition || ''}\n` }); md += '\n' }
+  md += `## Study Sessions\n`
+  if (!sessions?.length) md += '_None_\n'
+  else sessions.forEach((s) => { md += `- ${s.session_date}: ${s.duration_minutes} min${s.notes ? ` — ${s.notes}` : ''}\n` })
+
+  const blob = new Blob([md], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `${course.name.replace(/[^a-z0-9]/gi, '_')}.md`; a.click()
+  URL.revokeObjectURL(url)
+}
+
+async function exportCoursePDF(course) {
+  const [
+    { data: assignments },
+    { data: notes },
+    { data: concepts },
+    { data: sessions },
+  ] = await Promise.all([
+    supabase.from('assignments').select('*').eq('course_id', course.id).order('due_date'),
+    supabase.from('study_notes').select('*').eq('course_id', course.id).order('created_at'),
+    supabase.from('key_concepts').select('*').eq('course_id', course.id).order('created_at'),
+    supabase.from('study_sessions').select('*').eq('course_id', course.id).order('session_date'),
+  ])
+
+  function lg(pct) {
+    if (pct == null) return ''
+    if (pct >= 90) return 'A'; if (pct >= 80) return 'B'
+    if (pct >= 70) return 'C'; if (pct >= 60) return 'D'; return 'F'
+  }
+  const grade = course.grade_pct != null
+    ? `${Number(course.grade_pct).toFixed(1)}% (${lg(Number(course.grade_pct))})`
+    : 'N/A'
+
+  const assHTML  = assignments?.length ? assignments.map((a) => `<li>${a.title} &mdash; Due: ${a.due_date || 'N/A'} &mdash; <em>${a.status}</em></li>`).join('') : '<li><em>None</em></li>'
+  const notesHTML = notes?.length ? notes.map((n) => `<h3>${n.title}</h3><p>${(n.content || '').replace(/\n/g, '<br>')}</p>`).join('') : '<p><em>None</em></p>'
+  const conceptsHTML = concepts?.length ? concepts.map((k) => `<p><strong>${k.term}</strong>: ${k.definition || ''}</p>`).join('') : '<p><em>None</em></p>'
+  const sessHTML = sessions?.length ? sessions.map((s) => `<li>${s.session_date}: ${s.duration_minutes} min${s.notes ? ` &mdash; ${s.notes}` : ''}</li>`).join('') : '<li><em>None</em></li>'
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${course.name}</title>
+<style>@media print{body{margin:0}} body{font-family:Georgia,serif;max-width:800px;margin:40px auto;color:#1a1a1a;background:#fff;line-height:1.6} h1{font-size:28px;border-bottom:2px solid #333;padding-bottom:8px} h2{font-size:20px;margin-top:32px;border-bottom:1px solid #ccc;padding-bottom:4px} h3{font-size:16px;margin-top:20px} .meta{color:#555;font-size:14px;margin:8px 0 24px} ul{padding-left:20px} li{margin:4px 0} p{margin:6px 0}</style>
+</head><body>
+<h1>${course.name}</h1>
+<div class="meta">${course.provider ? `Provider: ${course.provider}<br>` : ''}Status: ${course.status} | Type: ${course.course_type}<br>Grade: ${grade}</div>
+<h2>Assignments</h2><ul>${assHTML}</ul>
+<h2>Study Notes</h2>${notesHTML}
+<h2>Key Concepts</h2>${conceptsHTML}
+<h2>Study Sessions</h2><ul>${sessHTML}</ul>
+</body></html>`
+
+  const win = window.open('', '_blank')
+  if (win) { win.document.write(html); win.document.close(); win.print() }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -337,6 +426,7 @@ function EditCourseModal({ course, onClose, onSave }) {
             <option value="in_progress">In Progress</option>
             <option value="finished">Finished</option>
             <option value="wishlist">Wishlist</option>
+            <option value="archived">Archived</option>
           </select>
         </div>
         <div>
@@ -436,7 +526,8 @@ export default function CourseDetail() {
 
   const [tab, setTab]               = useState(location.state?.tab || 'assignments')
   const [modal, setModal]           = useState(null) // 'addAssignment'|'addConcept'|'addBlock'|'logSession'
-  const [showEditCourse, setShowEditCourse] = useState(false)
+  const [showEditCourse, setShowEditCourse]       = useState(false)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [editGrade, setEditGrade]   = useState(false)
   const [gradeInput, setGradeInput] = useState('')
   const [gradeError, setGradeError] = useState(null)
@@ -526,14 +617,61 @@ export default function CourseDetail() {
         borderBottom: `1px solid ${BORDER}`,
         paddingBottom: 20,
       }}>
-        <button onClick={() => navigate('/education')} style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'transparent', border: 'none', color: MUTED,
-          cursor: 'pointer', fontSize: 13, padding: 0, marginBottom: 14,
-        }}>
-          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
-          Back to Education
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+          <button onClick={() => navigate('/education')} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: 'transparent', border: 'none', color: MUTED,
+            cursor: 'pointer', fontSize: 13, padding: 0,
+          }}>
+            <ArrowLeftIcon style={{ width: 14, height: 14 }} />
+            Back to Education
+          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => exportCourseMarkdown(course)} style={{
+              padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              background: CARD2, border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer',
+            }}>Export .md</button>
+            <button onClick={() => exportCoursePDF(course)} style={{
+              padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              background: CARD2, border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer',
+            }}>Export PDF</button>
+            <button onClick={() => setShowArchiveConfirm(true)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+              color: '#fbbf24', cursor: 'pointer',
+            }}>
+              <ArchiveBoxIcon style={{ width: 13, height: 13 }} />
+              Archive
+            </button>
+          </div>
+        </div>
+
+        {/* Archive confirmation banner */}
+        {showArchiveConfirm && (
+          <div style={{
+            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+            borderRadius: 8, padding: '12px 16px', marginBottom: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+          }}>
+            <span style={{ color: '#fbbf24', fontSize: 13 }}>
+              Archive this course? It will be hidden from your active courses but all data will be preserved.
+            </span>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button onClick={() => setShowArchiveConfirm(false)} style={{
+                padding: '5px 12px', borderRadius: 6, background: 'transparent',
+                border: `1px solid ${BORDER}`, color: MUTED, cursor: 'pointer', fontSize: 13,
+              }}>Cancel</button>
+              <button onClick={async () => {
+                await edu.updateCourse(courseId, { status: 'archived' })
+                navigate('/education')
+              }} style={{
+                padding: '5px 14px', borderRadius: 6, background: 'rgba(245,158,11,0.2)',
+                border: '1px solid rgba(245,158,11,0.4)', color: '#fbbf24', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              }}>Confirm Archive</button>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
@@ -558,6 +696,7 @@ export default function CourseDetail() {
                   in_progress: { bg: 'rgba(99,102,241,0.15)', color: '#818cf8', label: 'In Progress' },
                   finished:    { bg: 'rgba(16,185,129,0.15)', color: '#34d399', label: 'Finished'    },
                   wishlist:    { bg: 'rgba(245,158,11,0.15)', color: '#fbbf24', label: 'Wishlist'    },
+                  archived:    { bg: 'rgba(107,114,128,0.15)', color: '#9ca3af', label: 'Archived'   },
                 }
                 const s = map[course.status] ?? { bg: 'rgba(107,114,128,0.15)', color: '#9ca3af', label: course.status }
                 return (

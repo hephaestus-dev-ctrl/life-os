@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { useEducation } from './useEducation'
+import { supabase } from '../../lib/supabase'
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 const BG      = '#0f1117'
@@ -41,6 +42,7 @@ function StatusBadge({ status }) {
     in_progress: { bg: 'rgba(99,102,241,0.15)',  color: '#818cf8', label: 'In Progress' },
     finished:    { bg: 'rgba(16,185,129,0.15)',  color: '#34d399', label: 'Finished'    },
     wishlist:    { bg: 'rgba(245,158,11,0.15)',  color: '#fbbf24', label: 'Wishlist'    },
+    archived:    { bg: 'rgba(107,114,128,0.15)', color: '#9ca3af', label: 'Archived'    },
   }
   const s = map[status] ?? { bg: 'rgba(107,114,128,0.15)', color: '#9ca3af', label: status }
   return (
@@ -73,6 +75,106 @@ function inputStyle(extra = {}) {
     borderRadius: 8, padding: '8px 12px', color: TEXT, fontSize: 14,
     outline: 'none', boxSizing: 'border-box', ...extra,
   }
+}
+
+// ── Export helpers ────────────────────────────────────────────────────────────
+async function exportCourseMarkdown(course) {
+  const [
+    { data: assignments },
+    { data: notes },
+    { data: concepts },
+    { data: sessions },
+  ] = await Promise.all([
+    supabase.from('assignments').select('*').eq('course_id', course.id).order('due_date'),
+    supabase.from('study_notes').select('*').eq('course_id', course.id).order('created_at'),
+    supabase.from('key_concepts').select('*').eq('course_id', course.id).order('created_at'),
+    supabase.from('study_sessions').select('*').eq('course_id', course.id).order('session_date'),
+  ])
+
+  const grade = course.grade_pct != null
+    ? `${Number(course.grade_pct).toFixed(1)}% (${letterGrade(Number(course.grade_pct))})`
+    : 'N/A'
+
+  let md = `# ${course.name}\n`
+  if (course.provider) md += `Provider: ${course.provider}\n`
+  md += `Status: ${course.status} | Type: ${course.course_type}\n`
+  md += `Grade: ${grade}\n\n`
+
+  md += `## Assignments\n`
+  if (!assignments?.length) md += '_None_\n\n'
+  else { assignments.forEach((a) => { md += `- ${a.title} — Due: ${a.due_date || 'N/A'} — ${a.status}\n` }); md += '\n' }
+
+  md += `## Study Notes\n`
+  if (!notes?.length) md += '_None_\n\n'
+  else notes.forEach((n) => { md += `### ${n.title}\n${n.content || ''}\n\n` })
+
+  md += `## Key Concepts\n`
+  if (!concepts?.length) md += '_None_\n\n'
+  else { concepts.forEach((k) => { md += `**${k.term}**: ${k.definition || ''}\n` }); md += '\n' }
+
+  md += `## Study Sessions\n`
+  if (!sessions?.length) md += '_None_\n'
+  else sessions.forEach((s) => { md += `- ${s.session_date}: ${s.duration_minutes} min${s.notes ? ` — ${s.notes}` : ''}\n` })
+
+  const blob = new Blob([md], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${course.name.replace(/[^a-z0-9]/gi, '_')}.md`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+async function exportCoursePDF(course) {
+  const [
+    { data: assignments },
+    { data: notes },
+    { data: concepts },
+    { data: sessions },
+  ] = await Promise.all([
+    supabase.from('assignments').select('*').eq('course_id', course.id).order('due_date'),
+    supabase.from('study_notes').select('*').eq('course_id', course.id).order('created_at'),
+    supabase.from('key_concepts').select('*').eq('course_id', course.id).order('created_at'),
+    supabase.from('study_sessions').select('*').eq('course_id', course.id).order('session_date'),
+  ])
+
+  const grade = course.grade_pct != null
+    ? `${Number(course.grade_pct).toFixed(1)}% (${letterGrade(Number(course.grade_pct))})`
+    : 'N/A'
+
+  const assHTML  = assignments?.length
+    ? assignments.map((a) => `<li>${a.title} &mdash; Due: ${a.due_date || 'N/A'} &mdash; <em>${a.status}</em></li>`).join('')
+    : '<li><em>None</em></li>'
+  const notesHTML = notes?.length
+    ? notes.map((n) => `<h3>${n.title}</h3><p>${(n.content || '').replace(/\n/g, '<br>')}</p>`).join('')
+    : '<p><em>None</em></p>'
+  const conceptsHTML = concepts?.length
+    ? concepts.map((k) => `<p><strong>${k.term}</strong>: ${k.definition || ''}</p>`).join('')
+    : '<p><em>None</em></p>'
+  const sessHTML = sessions?.length
+    ? sessions.map((s) => `<li>${s.session_date}: ${s.duration_minutes} min${s.notes ? ` &mdash; ${s.notes}` : ''}</li>`).join('')
+    : '<li><em>None</em></li>'
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${course.name}</title>
+<style>
+  @media print { body { margin: 0; } }
+  body { font-family: Georgia, serif; max-width: 800px; margin: 40px auto; color: #1a1a1a; background: #fff; line-height: 1.6; }
+  h1 { font-size: 28px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  h2 { font-size: 20px; margin-top: 32px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  h3 { font-size: 16px; margin-top: 20px; }
+  .meta { color: #555; font-size: 14px; margin: 8px 0 24px; }
+  ul { padding-left: 20px; } li { margin: 4px 0; } p { margin: 6px 0; }
+</style></head><body>
+<h1>${course.name}</h1>
+<div class="meta">${course.provider ? `Provider: ${course.provider}<br>` : ''}Status: ${course.status} | Type: ${course.course_type}<br>Grade: ${grade}</div>
+<h2>Assignments</h2><ul>${assHTML}</ul>
+<h2>Study Notes</h2>${notesHTML}
+<h2>Key Concepts</h2>${conceptsHTML}
+<h2>Study Sessions</h2><ul>${sessHTML}</ul>
+</body></html>`
+
+  const win = window.open('', '_blank')
+  if (win) { win.document.write(html); win.document.close(); win.print() }
 }
 
 // ── Add Course Modal ──────────────────────────────────────────────────────────
@@ -236,10 +338,13 @@ export default function Education() {
     )
   }
 
+  const activeCourses   = edu.courses.filter((c) => c.status !== 'archived')
+  const archivedCourses = edu.courses.filter((c) => c.status === 'archived')
+
   const typedCourses =
-    tab === 'college'    ? edu.courses.filter((c) => c.course_type === 'college') :
-    tab === 'self_paced' ? edu.courses.filter((c) => c.course_type === 'self_paced') :
-    edu.courses
+    tab === 'college'    ? activeCourses.filter((c) => c.course_type === 'college') :
+    tab === 'self_paced' ? activeCourses.filter((c) => c.course_type === 'self_paced') :
+    activeCourses
   const filteredCourses =
     filter === 'all' ? typedCourses : typedCourses.filter((c) => c.status === filter)
 
@@ -268,7 +373,7 @@ export default function Education() {
         display: 'flex', gap: 2,
         borderBottom: `1px solid ${BORDER}`,
       }}>
-        {[['college', 'College'], ['self_paced', 'Self-Paced'], ['assignments', 'Assignments']].map(([key, label]) => (
+        {[['college', 'College'], ['self_paced', 'Self-Paced'], ['assignments', 'Assignments'], ['archived', 'Archived']].map(([key, label]) => (
           <button key={key} onClick={() => switchTab(key)} style={{
             padding: '8px 22px',
             borderRadius: '8px 8px 0 0',
@@ -513,6 +618,108 @@ export default function Education() {
               </section>
             ))}
           </div>
+        )}
+
+        {/* ════════════════════════════════════════
+            ARCHIVED TAB
+        ════════════════════════════════════════ */}
+        {tab === 'archived' && (
+          <>
+            {archivedCourses.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: MUTED }}>
+                <p style={{ fontSize: 16, margin: '0 0 6px' }}>No archived courses.</p>
+                <p style={{ fontSize: 13, margin: 0 }}>Archive a course from its detail page to store it here.</p>
+              </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: 16,
+              }}>
+                {archivedCourses.map((course) => {
+                  const typeColor = course.color || COLLEGE
+                  const grade     = course.grade_pct != null ? Number(course.grade_pct) : null
+                  return (
+                    <div key={course.id} style={{
+                      background: CARD,
+                      border: `1px solid ${BORDER}`,
+                      borderLeft: `4px solid ${typeColor}`,
+                      borderRadius: 12,
+                      padding: 20,
+                      display: 'flex', flexDirection: 'column', gap: 14,
+                      opacity: 0.7,
+                    }}>
+                      <div>
+                        <h3 style={{ color: TEXT, fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>
+                          {course.name}
+                        </h3>
+                        {course.provider && (
+                          <p style={{ color: MUTED, fontSize: 13, margin: 0 }}>{course.provider}</p>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <TypeBadge type={course.course_type} />
+                        {grade != null && (
+                          <span style={{ color: MUTED, fontSize: 12, alignSelf: 'center' }}>
+                            Grade: {grade.toFixed(1)}% ({letterGrade(grade)})
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Action buttons */}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 'auto' }}>
+                        <button
+                          onClick={() => edu.updateCourse(course.id, { status: 'in_progress' })}
+                          style={{
+                            flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                            background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
+                            color: '#34d399', cursor: 'pointer',
+                          }}
+                        >
+                          Restore
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Permanently delete "${course.name}"? This cannot be undone.`)) {
+                              edu.deleteCourse(course.id)
+                            }
+                          }}
+                          style={{
+                            flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                            background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+                            color: '#f87171', cursor: 'pointer',
+                          }}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => exportCourseMarkdown(course)}
+                          style={{
+                            padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                            background: CARD2, border: `1px solid ${BORDER}`,
+                            color: MUTED, cursor: 'pointer',
+                          }}
+                        >
+                          Export .md
+                        </button>
+                        <button
+                          onClick={() => exportCoursePDF(course)}
+                          style={{
+                            padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                            background: CARD2, border: `1px solid ${BORDER}`,
+                            color: MUTED, cursor: 'pointer',
+                          }}
+                        >
+                          Export PDF
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
 
