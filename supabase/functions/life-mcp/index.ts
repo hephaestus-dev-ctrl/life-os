@@ -504,7 +504,7 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         user_id: ownerId, title, notes, due_date, priority, status: 'open', tags, project,
       })
       if (error) throw new Error(error.message)
-      return `Added todo: "${title}"${due_date ? ` (due ${due_date})` : ''}${priority !== 'medium' ? `, priority: ${priority}` : ''}`
+      return `Added todo: "${title}"${due_date ? ` (due ${due_date})` : ''}${priority !== 'medium' ? `, priority: ${priority}` : ''}${project ? `, project: ${project}` : ''}${tags?.length ? `, tags: [${tags.join(', ')}]` : ''}`
     }
 
     // ── complete-todo ───────────────────────────────────────────────────────
@@ -586,8 +586,7 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         user_id: ownerId, content, category: 'thought', title: null, tags,
       })
       if (error) throw new Error(error.message)
-      const preview = content.length > 80 ? `${content.slice(0, 80)}…` : content
-      return `Quick thought captured: "${preview}"`
+      return `Captured thought${tags?.length ? ` [${tags.join(', ')}]` : ''}: "${content.slice(0, 60)}${content.length > 60 ? '…' : ''}"`
     }
 
     // ── add-work-note ───────────────────────────────────────────────────────
@@ -599,7 +598,7 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         user_id: ownerId, content, title, project_label,
       })
       if (error) throw new Error(error.message)
-      return `Work note added${title ? `: "${title}"` : ''}${project_label ? ` [${project_label}]` : ''}`
+      return `Work note saved${title ? ` — "${title}"` : ''}${project_label ? ` [${project_label}]` : ''}`
     }
 
     // ── add-meeting-topic ───────────────────────────────────────────────────
@@ -630,7 +629,7 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         user_id: ownerId, content, title, category, tags,
       })
       if (error) throw new Error(error.message)
-      return `Note added${title ? `: "${title}"` : ''}${category !== 'note' ? ` [${category}]` : ''}`
+      return `Note saved${title ? ` — "${title}"` : ''}${category && category !== 'note' ? ` [${category}]` : ''}${tags?.length ? ` tags: [${tags.join(', ')}]` : ''}`
     }
 
     // ── add-assignment ──────────────────────────────────────────────────────
