@@ -754,39 +754,121 @@ async function dispatchMessage(msg: RpcMessage): Promise<unknown | null> {
   }
 }
 
-// ── Deno.serve entry point ────────────────────────────────────────────────────
+// ── Deno.serve entry point (MCP 2025-11-25 Streamable HTTP) ──────────────────
 
 Deno.serve(async (req) => {
+  const url = new URL(req.url)
+  const path = url.pathname.replace(/^\/functions\/v1\/life-mcp/, '') || '/'
+
+  // ── CORS preflight ──────────────────────────────────────────────────────────
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      },
+    })
   }
 
+  // ── OAuth Protected Resource Metadata ──────────────────────────────────────
+  if (path === '/.well-known/oauth-protected-resource') {
+    const baseUrl = `${url.protocol}//${url.host}/functions/v1/life-mcp`
+    return new Response(JSON.stringify({
+      resource: baseUrl,
+      authorization_servers: [`${baseUrl}`],
+      bearer_methods_supported: ['header'],
+      resource_documentation: 'https://life-os.vercel.app',
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // ── OAuth Authorization Server Metadata ────────────────────────────────────
+  if (path === '/.well-known/oauth-authorization-server') {
+    const baseUrl = `${url.protocol}//${url.host}/functions/v1/life-mcp`
+    return new Response(JSON.stringify({
+      issuer: baseUrl,
+      token_endpoint: `${baseUrl}/token`,
+      token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
+      grant_types_supported: ['client_credentials'],
+      response_types_supported: ['token'],
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // ── Token endpoint ──────────────────────────────────────────────────────────
+  if (path === '/token' && req.method === 'POST') {
+    const expectedToken = Deno.env.get('LIFE_MCP_TOKEN') ?? ''
+
+    let clientSecret = ''
+    const authHeader = req.headers.get('Authorization') ?? ''
+    if (authHeader.startsWith('Basic ')) {
+      try {
+        const decoded = atob(authHeader.slice(6))
+        clientSecret = decoded.includes(':')
+          ? decoded.slice(decoded.indexOf(':') + 1)
+          : decoded
+      } catch { /* ignore */ }
+    }
+    if (!clientSecret) {
+      try {
+        const params = new URLSearchParams(await req.text())
+        clientSecret = params.get('client_secret') ?? ''
+      } catch { /* ignore */ }
+    }
+
+    if (!expectedToken || clientSecret !== expectedToken) {
+      return new Response(JSON.stringify({
+        error: 'invalid_client',
+        error_description: 'Invalid client credentials',
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    return new Response(JSON.stringify({
+      access_token: expectedToken,
+      token_type: 'Bearer',
+      expires_in: 86400,
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // ── Main MCP endpoint — POST / only ────────────────────────────────────────
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // ── Auth validation ─────────────────────────────────────────────────────────
   const expectedToken = Deno.env.get('LIFE_MCP_TOKEN') ?? ''
   const authHeader = req.headers.get('Authorization') ?? ''
-  const url = new URL(req.url)
   const queryToken = url.searchParams.get('token') ?? ''
 
   let authenticated = false
 
   if (expectedToken) {
-    // Bearer token
     if (authHeader === `Bearer ${expectedToken}`) {
       authenticated = true
-    }
-    // Query param
-    else if (queryToken === expectedToken) {
+    } else if (queryToken === expectedToken) {
       authenticated = true
-    }
-    // Basic auth (Claude.ai OAuth): base64("anything:token") or base64(":token")
-    else if (authHeader.startsWith('Basic ')) {
+    } else if (authHeader.startsWith('Basic ')) {
       try {
         const decoded = atob(authHeader.slice(6))
-        const colonIdx = decoded.indexOf(':')
-        const password = colonIdx >= 0 ? decoded.slice(colonIdx + 1) : decoded
+        const password = decoded.includes(':')
+          ? decoded.slice(decoded.indexOf(':') + 1)
+          : decoded
         if (password === expectedToken) authenticated = true
-      } catch {
-        // invalid base64 — leave authenticated false
-      }
+      } catch { /* invalid base64 */ }
     }
   }
 
@@ -797,6 +879,7 @@ Deno.serve(async (req) => {
     })
   }
 
+  // ── JSON-RPC dispatch ───────────────────────────────────────────────────────
   let body: unknown
   try {
     body = await req.json()
