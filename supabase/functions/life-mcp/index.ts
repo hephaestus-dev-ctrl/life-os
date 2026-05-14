@@ -165,6 +165,48 @@ const TOOLS = [
       required: ['routine'],
     },
   },
+  {
+    name: 'create-habit',
+    description: 'Create a new habit to track. Use this to add a habit to Life OS before logging it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Habit name' },
+        category: {
+          type: 'string',
+          enum: ['Health', 'Mind', 'Work', 'Personal'],
+          description: 'Habit category (default: Personal)',
+        },
+        routine_type: {
+          type: 'string',
+          enum: ['morning', 'evening'],
+          description: 'Assign to morning or evening routine (optional — leave out for standalone habits)',
+        },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'create-chore',
+    description: 'Create a new chore with a cadence. Use this to add a chore to Life OS before logging it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title:   { type: 'string', description: 'Chore title' },
+        cadence: {
+          type: 'string',
+          enum: ['daily', 'weekly', 'monthly'],
+          description: 'How often the chore repeats',
+        },
+        assigned_day: {
+          type: 'string',
+          enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+          description: 'For weekly chores — which day of the week (optional)',
+        },
+      },
+      required: ['title', 'cadence'],
+    },
+  },
 
   // ── TODOS ──────────────────────────────────────────────────────────────────
   {
@@ -492,6 +534,54 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
       if (error) throw new Error(error.message)
       const names = (habits as { name: string }[]).map((h) => h.name).join(', ')
       return `Logged ${habits.length} ${routine} habits on ${completedDate}: ${names}`
+    }
+
+    // ── create-habit ────────────────────────────────────────────────────────
+    case 'create-habit': {
+      const { name, category = 'Personal', routine_type } = args as {
+        name: string; category?: string; routine_type?: string
+      }
+      const { data: existing } = await db
+        .from('habits')
+        .select('id, name')
+        .eq('user_id', ownerId)
+        .ilike('name', name)
+        .maybeSingle()
+      if (existing) {
+        return `Habit "${(existing as { name: string }).name}" already exists — skipped.`
+      }
+      const { error } = await db.from('habits').insert({
+        user_id: ownerId,
+        name,
+        category,
+        routine_type: routine_type ?? null,
+      })
+      if (error) throw new Error(error.message)
+      return `Habit created: "${name}" [${category}]${routine_type ? ` — ${routine_type} routine` : ''}`
+    }
+
+    // ── create-chore ────────────────────────────────────────────────────────
+    case 'create-chore': {
+      const { title, cadence, assigned_day } = args as {
+        title: string; cadence: string; assigned_day?: string
+      }
+      const { data: existing } = await db
+        .from('chores')
+        .select('id, title')
+        .eq('user_id', ownerId)
+        .ilike('title', title)
+        .maybeSingle()
+      if (existing) {
+        return `Chore "${(existing as { title: string }).title}" already exists — skipped.`
+      }
+      const { error } = await db.from('chores').insert({
+        user_id: ownerId,
+        title,
+        cadence,
+        assigned_day: cadence === 'weekly' ? (assigned_day ?? null) : null,
+      })
+      if (error) throw new Error(error.message)
+      return `Chore created: "${title}" [${cadence}]${assigned_day ? ` — every ${assigned_day}` : ''}`
     }
 
     // ── add-todo ────────────────────────────────────────────────────────────
