@@ -761,16 +761,36 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  // Bearer token auth — reject anything that doesn't match LIFE_MCP_TOKEN
-  const token = Deno.env.get('LIFE_MCP_TOKEN') ?? ''
+  const expectedToken = Deno.env.get('LIFE_MCP_TOKEN') ?? ''
   const authHeader = req.headers.get('Authorization') ?? ''
   const url = new URL(req.url)
   const queryToken = url.searchParams.get('token') ?? ''
 
-  const validBearer = authHeader === `Bearer ${token}`
-  const validQuery  = queryToken === token
+  let authenticated = false
 
-  if (!token || (!validBearer && !validQuery)) {
+  if (expectedToken) {
+    // Bearer token
+    if (authHeader === `Bearer ${expectedToken}`) {
+      authenticated = true
+    }
+    // Query param
+    else if (queryToken === expectedToken) {
+      authenticated = true
+    }
+    // Basic auth (Claude.ai OAuth): base64("anything:token") or base64(":token")
+    else if (authHeader.startsWith('Basic ')) {
+      try {
+        const decoded = atob(authHeader.slice(6))
+        const colonIdx = decoded.indexOf(':')
+        const password = colonIdx >= 0 ? decoded.slice(colonIdx + 1) : decoded
+        if (password === expectedToken) authenticated = true
+      } catch {
+        // invalid base64 — leave authenticated false
+      }
+    }
+  }
+
+  if (!authenticated) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
