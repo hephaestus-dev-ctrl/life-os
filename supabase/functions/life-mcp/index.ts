@@ -758,7 +758,7 @@ async function dispatchMessage(msg: RpcMessage): Promise<unknown | null> {
 
 Deno.serve(async (req) => {
   const url = new URL(req.url)
-  const path = url.pathname.replace(/^\/functions\/v1\/life-mcp/, '') || '/'
+  const pathname = url.pathname
 
   // ── CORS preflight ──────────────────────────────────────────────────────────
   if (req.method === 'OPTIONS') {
@@ -772,7 +772,7 @@ Deno.serve(async (req) => {
   }
 
   // ── OAuth Protected Resource Metadata ──────────────────────────────────────
-  if (path === '/.well-known/oauth-protected-resource') {
+  if (pathname.includes('/.well-known/oauth-protected-resource')) {
     const baseUrl = `${url.protocol}//${url.host}/functions/v1/life-mcp`
     return new Response(JSON.stringify({
       resource: baseUrl,
@@ -786,7 +786,7 @@ Deno.serve(async (req) => {
   }
 
   // ── OAuth Authorization Server Metadata ────────────────────────────────────
-  if (path === '/.well-known/oauth-authorization-server') {
+  if (pathname.includes('/.well-known/oauth-authorization-server')) {
     const baseUrl = `${url.protocol}//${url.host}/functions/v1/life-mcp`
     return new Response(JSON.stringify({
       issuer: baseUrl,
@@ -801,7 +801,7 @@ Deno.serve(async (req) => {
   }
 
   // ── Token endpoint ──────────────────────────────────────────────────────────
-  if (path === '/token' && req.method === 'POST') {
+  if (pathname.includes('/token') && req.method === 'POST') {
     const expectedToken = Deno.env.get('LIFE_MCP_TOKEN') ?? ''
 
     let clientSecret = ''
