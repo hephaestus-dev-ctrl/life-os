@@ -355,6 +355,7 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
   const db = getSupabase()
   const ownerId = await getOwnerId()
 
+  try {
   switch (name) {
 
     // ── update-reading-status ───────────────────────────────────────────────
@@ -412,8 +413,20 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         .ilike('title', `%${book_title}%`)
         .maybeSingle()
       if (bookErr) throw new Error(bookErr.message)
-      if (!book) throw new Error(`No book found matching "${book_title}"`)
-      const b = book as { id: string; title: string }
+      let b: { id: string; title: string }
+      let bookAutoCreated = false
+      if (!book) {
+        const { data: newBook, error: createErr } = await db
+          .from('books')
+          .insert({ user_id: ownerId, title: book_title, status: 'want_to_read' })
+          .select('id, title')
+          .single()
+        if (createErr) throw new Error(createErr.message)
+        b = newBook as { id: string; title: string }
+        bookAutoCreated = true
+      } else {
+        b = book as { id: string; title: string }
+      }
       const { error } = await db.from('book_notes').insert({
         book_id: b.id,
         user_id: ownerId,
@@ -422,6 +435,9 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         location_ref,
       })
       if (error) throw new Error(error.message)
+      if (bookAutoCreated) {
+        return `Book "${b.title}" was added to your library automatically. Note saved.`
+      }
       return `Added ${note_type} to "${b.title}"${location_ref ? ` (${location_ref})` : ''}`
     }
 
@@ -460,7 +476,10 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         .order('routine_order', { ascending: true })
       if (habitsErr) throw new Error(habitsErr.message)
       if (!habits || habits.length === 0) {
-        throw new Error(`No habits found for ${routine} routine`)
+        return JSON.stringify({
+          success: false,
+          message: `No habits are configured for your ${routine} routine yet. Open Life OS → Habits → Add Habit and set the routine type to Morning or Evening to get started.`,
+        })
       }
       const rows = (habits as { id: string; name: string }[]).map((h) => ({
         habit_id: h.id,
@@ -619,11 +638,35 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
       const { course_name, title, due_date } = args as {
         course_name: string; title: string; due_date?: string
       }
-      const courseId = await findCourseId(ownerId, course_name)
+      let courseId: string
+      let courseAutoCreated = false
+      try {
+        courseId = await findCourseId(ownerId, course_name)
+      } catch (e) {
+        const err = e as Error
+        if (!err.message.includes('No course found')) throw err
+        const { data: newCourse, error: createErr } = await db
+          .from('courses')
+          .insert({
+            user_id: ownerId,
+            name: course_name,
+            course_type: 'college',
+            status: 'in_progress',
+            color: '#6366f1',
+          })
+          .select('id')
+          .single()
+        if (createErr) throw new Error(createErr.message)
+        courseId = (newCourse as { id: string }).id
+        courseAutoCreated = true
+      }
       const { error } = await db.from('assignments').insert({
         user_id: ownerId, course_id: courseId, title, due_date, status: 'pending',
       })
       if (error) throw new Error(error.message)
+      if (courseAutoCreated) {
+        return `Course "${course_name}" was created automatically. Assignment added: "${title}"${due_date ? ` (due ${due_date})` : ''}`
+      }
       return `Assignment added: "${title}"${due_date ? ` (due ${due_date})` : ''} for "${course_name}"`
     }
 
@@ -676,7 +719,30 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         course_name?: string; duration_minutes?: number; notes?: string; date?: string
       }
       const sessionDate = dateArg ?? today()
-      const courseId = course_name ? await findCourseId(ownerId, course_name) : null
+      let courseId: string | null = null
+      let courseAutoCreated = false
+      if (course_name) {
+        try {
+          courseId = await findCourseId(ownerId, course_name)
+        } catch (e) {
+          const err = e as Error
+          if (!err.message.includes('No course found')) throw err
+          const { data: newCourse, error: createErr } = await db
+            .from('courses')
+            .insert({
+              user_id: ownerId,
+              name: course_name,
+              course_type: 'college',
+              status: 'in_progress',
+              color: '#6366f1',
+            })
+            .select('id')
+            .single()
+          if (createErr) throw new Error(createErr.message)
+          courseId = (newCourse as { id: string }).id
+          courseAutoCreated = true
+        }
+      }
       const { error } = await db.from('study_sessions').insert({
         user_id: ownerId,
         course_id: courseId,
@@ -685,7 +751,12 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
         notes,
       })
       if (error) throw new Error(error.message)
-      return `Study session logged on ${sessionDate}${course_name ? ` for "${course_name}"` : ''}${duration_minutes ? ` (${duration_minutes} min)` : ''}`
+      const coursePart = course_name
+        ? courseAutoCreated
+          ? ` for "${course_name}" (course created automatically)`
+          : ` for "${course_name}"`
+        : ''
+      return `Study session logged on ${sessionDate}${coursePart}${duration_minutes ? ` (${duration_minutes} min)` : ''}`
     }
 
     default: {
@@ -693,6 +764,15 @@ async function handleTool(name: string, args: Record<string, unknown>): Promise<
       err.code = -32601
       throw err
     }
+  }
+  } catch (topErr) {
+    const e = topErr as Error & { code?: number }
+    if (e.code !== undefined) throw topErr
+    return JSON.stringify({
+      success: false,
+      error: e.message,
+      hint: 'Check that the referenced item exists in Life OS before trying again.',
+    })
   }
 }
 
