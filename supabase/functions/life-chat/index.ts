@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-5'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
