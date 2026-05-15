@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4-5'
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+const MODEL = 'claude-sonnet-4-20250514'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -113,32 +113,29 @@ ${ctx}
 
 Important: The user's conversation history is in the messages array. Maintain continuity — remember what was said earlier in this conversation.`
 
-    // Call OpenRouter with full conversation history
-    const orRes = await fetch(OPENROUTER_URL, {
+    // Call Anthropic API with full conversation history
+    const apiRes = await fetch(ANTHROPIC_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
+        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://life-os.vercel.app',
-        'X-Title': 'Life OS',
       },
       body: JSON.stringify({
         model: MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
         max_tokens: 1000,
+        system: systemPrompt,
+        messages,
       }),
     })
 
-    if (!orRes.ok) {
-      const text = await orRes.text()
-      throw new Error(`OpenRouter ${orRes.status}: ${text}`)
+    if (!apiRes.ok) {
+      const text = await apiRes.text()
+      throw new Error(`Anthropic API ${apiRes.status}: ${text}`)
     }
 
-    const orData = await orRes.json()
-    const reply: string = orData.choices?.[0]?.message?.content?.trim() ?? ''
+    const apiData = await apiRes.json()
+    const reply: string = apiData.content?.[0]?.text?.trim() ?? ''
 
     return new Response(
       JSON.stringify({ reply }),

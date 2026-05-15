@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4-5'
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+const MODEL = 'claude-sonnet-4-20250514'
 
 function isoWeekStart(date: Date): string {
   const d = new Date(date)
@@ -206,32 +206,31 @@ Deno.serve(async (req) => {
         const periodLabel = review_type === 'weekly' ? 'week' : 'month'
         const systemPrompt = `You are a warm, insightful personal life coach reviewing this person's ${periodLabel}. Write a personal, thoughtful review in a conversational tone — like a trusted friend who has been watching their progress. Cover: what went well, what struggled, patterns you notice, one or two specific suggestions for next ${periodLabel}. Reference their actual data specifically. Use their name if available. Keep it under 400 words. Do not use bullet points — write in flowing paragraphs.`
 
-        // ── Call OpenRouter ───────────────────────────────────
-        const orRes = await fetch(OPENROUTER_URL, {
+        // ── Call Anthropic API ────────────────────────────────
+        const apiRes = await fetch(ANTHROPIC_URL, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
+            'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
+            'anthropic-version': '2023-06-01',
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://life-os.vercel.app',
-            'X-Title': 'Life OS',
           },
           body: JSON.stringify({
             model: MODEL,
+            max_tokens: 800,
+            system: systemPrompt,
             messages: [
-              { role: 'system', content: systemPrompt },
               { role: 'user', content: dataCtx },
             ],
-            max_tokens: 800,
           }),
         })
 
-        if (!orRes.ok) {
-          const text = await orRes.text()
-          throw new Error(`OpenRouter ${orRes.status}: ${text}`)
+        if (!apiRes.ok) {
+          const text = await apiRes.text()
+          throw new Error(`Anthropic API ${apiRes.status}: ${text}`)
         }
 
-        const orData = await orRes.json()
-        const content: string = orData.choices?.[0]?.message?.content?.trim() ?? ''
+        const apiData = await apiRes.json()
+        const content: string = apiData.content?.[0]?.text?.trim() ?? ''
 
         // ── Save review ───────────────────────────────────────
         await supabaseAdmin.from('ai_reviews').insert({

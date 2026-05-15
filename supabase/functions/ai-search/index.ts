@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4-5'
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+const MODEL = 'claude-sonnet-4-20250514'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -167,32 +167,31 @@ Deno.serve(async (req) => {
 
     const userMessage = `Here is the user's life data:\n\n${ctx.join('\n\n')}\n\n---\n\nUser question: ${query.trim()}\n\nAfter your answer, output a line that contains exactly "RESULTS_JSON:" followed by a JSON array of the most relevant entries you referenced. Each object must have: module (one of: habits, journal, notes, books, todos, workouts), title (string), date (YYYY-MM-DD or empty string), deeplink (the route path, e.g. /journal?date=2026-03-15). Output at most 8 results. If no specific entries apply, output an empty array.`
 
-    // ── Call OpenRouter ────────────────────────────────────────
-    const orRes = await fetch(OPENROUTER_URL, {
+    // ── Call Anthropic API ─────────────────────────────────────
+    const apiRes = await fetch(ANTHROPIC_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENROUTER_API_KEY')}`,
+        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://life-os.vercel.app',
-        'X-Title': 'Life OS',
       },
       body: JSON.stringify({
         model: MODEL,
+        max_tokens: 1000,
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        max_tokens: 1000,
       }),
     })
 
-    if (!orRes.ok) {
-      const text = await orRes.text()
-      throw new Error(`OpenRouter error ${orRes.status}: ${text}`)
+    if (!apiRes.ok) {
+      const text = await apiRes.text()
+      throw new Error(`Anthropic API error ${apiRes.status}: ${text}`)
     }
 
-    const orData = await orRes.json()
-    const fullContent: string = orData.choices?.[0]?.message?.content ?? ''
+    const apiData = await apiRes.json()
+    const fullContent: string = apiData.content?.[0]?.text ?? ''
 
     // Parse AI response vs. structured results
     let aiResponse = fullContent.trim()
