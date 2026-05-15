@@ -4,6 +4,103 @@ import { corsHeaders } from '../_shared/cors.ts'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-sonnet-4-5'
 
+const ADVISORS = {
+  psychologist: {
+    name: 'The Psychologist',
+    emoji: '🧠',
+    prompt: `You are a behavioral psychologist analyzing this
+    person's life data. Focus on: emotional patterns in journal
+    entries, mood trends over time, behavioral loops (habits they
+    keep vs habits they avoid), signs of self-sabotage, identity
+    formation, the gap between stated values and actual behavior.
+    Be clinically observant but warm. Reference specific data
+    points. Ask one probing question at the end that invites
+    genuine self-reflection. 3-4 paragraphs.`,
+  },
+  performance: {
+    name: 'The Performance Coach',
+    emoji: '⚡',
+    prompt: `You are an elite performance coach. Focus on:
+    productivity patterns, deep work consistency, output vs
+    input ratios, time optimization, energy management across
+    the week, office days vs WFH days performance differences,
+    education progress rate, skill acquisition velocity.
+    Be data-driven and specific. Identify the single highest
+    leverage change they could make. 3-4 paragraphs.`,
+  },
+  fitness: {
+    name: 'The Fitness Coach',
+    emoji: '💪',
+    prompt: `You are a world-class fitness coach. Focus on:
+    workout frequency and consistency, workout types and
+    progression, recovery patterns, the relationship between
+    workout days and mood/energy in journal entries, physical
+    discipline as a leading indicator of overall discipline.
+    Be specific about what the data shows. Push them toward
+    higher standards while acknowledging real progress.
+    3-4 paragraphs.`,
+  },
+  mentor: {
+    name: 'The Mentor',
+    emoji: '📖',
+    prompt: `You are a wise mentor who bridges reading and life.
+    Focus on: books being read and how their concepts appear
+    (or don't appear) in daily behavior and journal entries,
+    intellectual growth trajectory, the gap between consuming
+    ideas and actually applying them, education coursework
+    progress. Ask: what are they learning vs what are they
+    living? Be warm, Socratic, challenging. 3-4 paragraphs.`,
+  },
+  drillsergeant: {
+    name: 'The Drill Sergeant',
+    emoji: '⚔️',
+    prompt: `You are a Goggins/Jocko inspired accountability
+    coach with zero tolerance for excuses. Focus on: where
+    they fell short, habits that are consistently missed,
+    the gap between their stated standard and actual performance,
+    comfort zones they're not pushing. Be direct, demanding,
+    and honest — but not cruel. Call out specific failures by
+    name. End with a clear non-negotiable standard for next
+    week. 3-4 paragraphs. No soft language.`,
+  },
+  spiritual: {
+    name: 'The Spiritual Advisor',
+    emoji: '🙏',
+    prompt: `You are a spiritually grounded advisor. Focus on:
+    Bible study consistency and what it signals about their
+    spiritual discipline, alignment between their values and
+    their actions, moments of gratitude and meaning in journal
+    entries, whether their daily life reflects their stated
+    purpose, Frankl-inspired meaning analysis. Be reflective,
+    grounded, and non-preachy. 3-4 paragraphs.`,
+  },
+  career: {
+    name: 'The Career Advisor',
+    emoji: '💼',
+    prompt: `You are a senior career strategist. Focus on:
+    education and certification progress, skill building
+    velocity, work notes and professional observations,
+    the connection between current daily habits and long-term
+    career trajectory, cybersecurity specialization progress,
+    meeting topics and professional relationships. Be strategic
+    and forward-looking. Identify the most important career
+    move for the next 90 days. 3-4 paragraphs.`,
+  },
+  mirror: {
+    name: 'The Mirror',
+    emoji: '🪞',
+    prompt: `You are a pure data analyst. No emotion, no
+    encouragement, no criticism. Just facts. State exactly
+    what the numbers show: habit completion percentages by
+    habit, workout count, journal entry count, mood distribution,
+    chore completion rate, books finished, study hours,
+    consistency score average. Then identify the top 3
+    statistical patterns — positive and negative. End with
+    one sentence: what the data says about this person.
+    Be precise. Use numbers. 3-4 paragraphs.`,
+  },
+}
+
 function isoWeekStart(date: Date): string {
   const d = new Date(date)
   const day = d.getDay()
@@ -83,7 +180,10 @@ Deno.serve(async (req) => {
     const periodStart = bodyStart ?? autoStart
     const periodEnd   = bodyEnd   ?? autoEnd
 
-    const results: { userId: string; content?: string; error?: string }[] = []
+    type AdvisorResult = { name: string; emoji: string; content: string }
+    type AdvisorsMap = Record<string, AdvisorResult>
+    type AdvisorsPayload = { period: string; generated_at: string; advisors: AdvisorsMap }
+    const results: { userId: string; advisors?: AdvisorsPayload; error?: string }[] = []
 
     for (const userId of userIds) {
       try {
@@ -203,34 +303,48 @@ Deno.serve(async (req) => {
             : '',
         ].filter(Boolean).join('\n\n')
 
-        const periodLabel = review_type === 'weekly' ? 'week' : 'month'
-        const systemPrompt = `You are a warm, insightful personal life coach reviewing this person's ${periodLabel}. Write a personal, thoughtful review in a conversational tone — like a trusted friend who has been watching their progress. Cover: what went well, what struggled, patterns you notice, one or two specific suggestions for next ${periodLabel}. Reference their actual data specifically. Use their name if available. Keep it under 400 words. Do not use bullet points — write in flowing paragraphs.`
-
-        // ── Call Anthropic API ────────────────────────────────
-        const apiRes = await fetch(ANTHROPIC_URL, {
-          method: 'POST',
-          headers: {
-            'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
-            'anthropic-version': '2023-06-01',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: MODEL,
-            max_tokens: 800,
-            system: systemPrompt,
-            messages: [
-              { role: 'user', content: dataCtx },
-            ],
-          }),
-        })
-
-        if (!apiRes.ok) {
-          const text = await apiRes.text()
-          throw new Error(`Anthropic API ${apiRes.status}: ${text}`)
+        // ── Call all 8 advisors in parallel ───────────────────
+        async function callAdvisor(
+          key: string,
+          advisor: { name: string; emoji: string; prompt: string }
+        ): Promise<[string, AdvisorResult]> {
+          const apiRes = await fetch(ANTHROPIC_URL, {
+            method: 'POST',
+            headers: {
+              'x-api-key': Deno.env.get('ANTHROPIC_API_KEY') ?? '',
+              'anthropic-version': '2023-06-01',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: MODEL,
+              max_tokens: 800,
+              system: advisor.prompt,
+              messages: [{ role: 'user', content: dataCtx }],
+            }),
+          })
+          if (!apiRes.ok) {
+            const text = await apiRes.text()
+            throw new Error(`Anthropic API ${apiRes.status}: ${text}`)
+          }
+          const apiData = await apiRes.json()
+          return [key, {
+            name: advisor.name,
+            emoji: advisor.emoji,
+            content: apiData.content?.[0]?.text?.trim() ?? '',
+          }]
         }
 
-        const apiData = await apiRes.json()
-        const content: string = apiData.content?.[0]?.text?.trim() ?? ''
+        const advisorEntries = await Promise.all(
+          Object.entries(ADVISORS).map(([key, advisor]) => callAdvisor(key, advisor))
+        )
+        const advisors: AdvisorsMap = Object.fromEntries(advisorEntries)
+
+        const period = review_type === 'ondemand' ? 'weekly' : review_type
+        const advisorPayload: AdvisorsPayload = {
+          period,
+          generated_at: new Date().toISOString(),
+          advisors,
+        }
 
         // ── Save review ───────────────────────────────────────
         await supabaseAdmin.from('ai_reviews').insert({
@@ -238,10 +352,10 @@ Deno.serve(async (req) => {
           review_type,
           period_start: periodStart,
           period_end:   periodEnd,
-          content,
+          content: JSON.stringify(advisorPayload),
         })
 
-        results.push({ userId, content })
+        results.push({ userId, advisors: advisorPayload })
       } catch (userErr) {
         console.error(`Error for user ${userId}:`, userErr)
         results.push({ userId, error: (userErr as Error).message })
@@ -258,7 +372,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ content: primary?.content, generated: results.length }),
+      JSON.stringify({ ...primary?.advisors, generated: results.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err) {

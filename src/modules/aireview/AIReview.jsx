@@ -1,9 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import {
-  SparklesIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from '@heroicons/react/24/outline'
+import { useState } from 'react'
+import { SparklesIcon } from '@heroicons/react/24/outline'
 import { supabase } from '../../lib/supabase'
 
 // ── Date helpers ──────────────────────────────────────────────
@@ -24,125 +20,76 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function formatPeriod(start, end) {
-  const s = new Date(start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const e = new Date(end   + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  return `${s} – ${e}`
-}
+// ── Advisor definitions (for UI only) ────────────────────────
 
-// ── Review card ───────────────────────────────────────────────
+const ADVISOR_LIST = [
+  { key: 'psychologist',  name: 'The Psychologist',      emoji: '🧠', description: 'Emotional patterns, mood trends, behavioral loops' },
+  { key: 'performance',   name: 'The Performance Coach',  emoji: '⚡', description: 'Productivity, deep work, output vs input ratios' },
+  { key: 'fitness',       name: 'The Fitness Coach',      emoji: '💪', description: 'Workout consistency, recovery, physical discipline' },
+  { key: 'mentor',        name: 'The Mentor',             emoji: '📖', description: 'Reading vs living: books, ideas, and application' },
+  { key: 'drillsergeant', name: 'The Drill Sergeant',     emoji: '⚔️', description: 'Zero excuses — where you fell short and what to fix' },
+  { key: 'spiritual',     name: 'The Spiritual Advisor',  emoji: '🙏', description: 'Values alignment, meaning, spiritual discipline' },
+  { key: 'career',        name: 'The Career Advisor',     emoji: '💼', description: 'Career trajectory, skills, 90-day strategy' },
+  { key: 'mirror',        name: 'The Mirror',             emoji: '🪞', description: 'Pure data — no emotion, just the numbers' },
+]
 
-function ReviewCard({ review }) {
-  const [expanded, setExpanded] = useState(false)
+// ── Skeleton loading state ────────────────────────────────────
 
-  const preview = review.content
-    ? review.content.split('\n').filter(Boolean).slice(0, 2).join(' ').slice(0, 240)
-    : ''
-
+function SkeletonGrid() {
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{
-        backgroundColor: '#1e2130',
-        border: '1px solid rgba(255,255,255,0.07)',
-      }}
-    >
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left px-5 py-4 flex items-start justify-between gap-4"
+    <div>
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-6 no-scrollbar">
+        {ADVISOR_LIST.map(({ key, emoji, name }) => (
+          <div
+            key={key}
+            className="flex-shrink-0 px-3 py-2 rounded-xl animate-pulse"
+            style={{ backgroundColor: '#1e2130', border: '1px solid rgba(255,255,255,0.07)' }}
+          >
+            <span className="text-sm text-gray-400">{emoji} {name.replace('The ', '')}</span>
+          </div>
+        ))}
+      </div>
+      <div
+        className="rounded-2xl p-6"
+        style={{ backgroundColor: '#1e2130', border: '1px solid rgba(255,255,255,0.07)' }}
       >
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-indigo-400 mb-1">
-            {formatPeriod(review.period_start, review.period_end)}
-          </p>
-          <p className="text-sm text-gray-300 leading-relaxed line-clamp-2">
-            {expanded ? null : preview}
-            {!expanded && review.content?.length > 240 && (
-              <span className="text-gray-600"> …</span>
-            )}
-          </p>
-        </div>
-        {expanded
-          ? <ChevronUpIcon className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5" />
-          : <ChevronDownIcon className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5" />
-        }
-      </button>
-
-      {expanded && (
-        <div
-          className="px-5 pb-5"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
-        >
-          <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap pt-4">
-            {review.content}
-          </p>
-          <p className="text-xs text-gray-700 mt-4">
-            Generated {new Date(review.created_at).toLocaleDateString('en-US', {
-              month: 'long', day: 'numeric', year: 'numeric',
-            })}
-          </p>
-        </div>
-      )}
+        <div className="h-5 w-48 rounded mb-5 animate-pulse" style={{ backgroundColor: '#2a2f45' }} />
+        {[100, 100, 100, 60].map((w, i) => (
+          <div
+            key={i}
+            className="h-3 rounded mb-3 animate-pulse"
+            style={{ backgroundColor: '#2a2f45', width: `${w}%` }}
+          />
+        ))}
+        <div className="mt-5 mb-2 h-3 rounded animate-pulse" style={{ backgroundColor: '#2a2f45', width: '100%' }} />
+        {[100, 100, 75].map((w, i) => (
+          <div
+            key={i}
+            className="h-3 rounded mb-3 animate-pulse"
+            style={{ backgroundColor: '#2a2f45', width: `${w}%` }}
+          />
+        ))}
+      </div>
     </div>
   )
 }
 
-// ── Generate button ───────────────────────────────────────────
+// ── Empty state — advisor preview grid ────────────────────────
 
-function GenerateButton({ reviewType, onGenerated }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
-
-  async function handleGenerate() {
-    setLoading(true)
-    setError(null)
-    try {
-      const now   = new Date()
-      const start = reviewType === 'weekly' ? isoWeekStart(now) : monthStart(now)
-      const end   = today()
-
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        setError('Not authenticated. Please refresh the page.')
-        setLoading(false)
-        return
-      }
-
-      const { data, error: fnErr } = await supabase.functions.invoke('ai-review', {
-        body: {
-          review_type:  reviewType,
-          period_start: start,
-          period_end:   end,
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      })
-      if (fnErr) throw fnErr
-      onGenerated(data.content, start, end)
-    } catch (err) {
-      setError(err.message ?? 'Generation failed. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+function EmptyStateGrid() {
   return (
-    <div className="flex items-center gap-3">
-      <button
-        onClick={handleGenerate}
-        disabled={loading}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
-        style={{ backgroundColor: '#6366f1', color: '#fff' }}
-      >
-        {loading ? (
-          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <SparklesIcon className="w-4 h-4" />
-        )}
-        {loading ? 'Generating…' : 'Generate Review'}
-      </button>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+      {ADVISOR_LIST.map(({ key, emoji, name, description }) => (
+        <div
+          key={key}
+          className="rounded-2xl p-4"
+          style={{ backgroundColor: '#1a1d27', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <div className="text-2xl mb-2">{emoji}</div>
+          <p className="text-sm font-medium text-gray-200 mb-1">{name}</p>
+          <p className="text-xs text-gray-500 leading-relaxed">{description}</p>
+        </div>
+      ))}
     </div>
   )
 }
@@ -150,62 +97,43 @@ function GenerateButton({ reviewType, onGenerated }) {
 // ── Main component ────────────────────────────────────────────
 
 export default function AIReview({ session }) {
-  const [activeTab, setActiveTab] = useState('weekly')
-  const [reviews, setReviews]     = useState({ weekly: null, monthly: null })
-  const [loading, setLoading]     = useState(true)
+  const [periodTab,     setPeriodTab]     = useState('weekly')
+  const [generating,    setGenerating]    = useState(false)
+  const [error,         setError]         = useState(null)
+  const [advisorData,   setAdvisorData]   = useState(null)
+  const [activeAdvisor, setActiveAdvisor] = useState('psychologist')
 
-  const userId = session?.user?.id
-
-  const fetchReviews = useCallback(async () => {
-    if (!userId) return
-    setLoading(true)
+  async function handleGenerate() {
+    setGenerating(true)
+    setError(null)
     try {
-      const [weeklyRes, monthlyRes] = await Promise.all([
-        supabase
-          .from('ai_reviews')
-          .select('*')
-          .eq('user_id', userId)
-          .in('review_type', ['weekly', 'ondemand'])
-          .order('created_at', { ascending: false })
-          .limit(20),
-        supabase
-          .from('ai_reviews')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('review_type', 'monthly')
-          .order('created_at', { ascending: false })
-          .limit(20),
-      ])
-      setReviews({
-        weekly:  weeklyRes.data  ?? [],
-        monthly: monthlyRes.data ?? [],
+      const now   = new Date()
+      const start = periodTab === 'weekly' ? isoWeekStart(now) : monthStart(now)
+      const end   = today()
+
+      const { data: { session: sess } } = await supabase.auth.getSession()
+      if (!sess) {
+        setError('Not authenticated. Please refresh the page.')
+        return
+      }
+
+      const { data, error: fnErr } = await supabase.functions.invoke('ai-review', {
+        body: { review_type: periodTab, period_start: start, period_end: end },
+        headers: { Authorization: `Bearer ${sess.access_token}` },
       })
+      if (fnErr) throw fnErr
+      setAdvisorData(data.advisors)
+      setActiveAdvisor('psychologist')
+    } catch (err) {
+      setError(err.message ?? 'Generation failed. Please try again.')
     } finally {
-      setLoading(false)
+      setGenerating(false)
     }
-  }, [userId])
-
-  useEffect(() => { fetchReviews() }, [fetchReviews])
-
-  function handleGenerated(content, period_start, period_end) {
-    const newReview = {
-      id: crypto.randomUUID(),
-      user_id: userId,
-      review_type: activeTab,
-      period_start,
-      period_end,
-      content,
-      created_at: new Date().toISOString(),
-    }
-    setReviews((prev) => ({
-      ...prev,
-      [activeTab]: [newReview, ...(prev[activeTab] ?? [])],
-    }))
   }
 
-  const current = reviews[activeTab] ?? []
+  const selected = advisorData?.[activeAdvisor]
 
-  const tabs = [
+  const periodTabs = [
     { key: 'weekly',  label: 'Weekly' },
     { key: 'monthly', label: 'Monthly' },
   ]
@@ -219,23 +147,23 @@ export default function AIReview({ session }) {
           AI Life Review
         </h1>
         <p className="text-gray-500 mt-1 text-sm">
-          Personalised reflections on your habits, workouts, journal and more.
+          8 expert perspectives on your habits, workouts, journal, and more.
         </p>
       </div>
 
-      {/* Tabs + Generate button */}
-      <div className="flex items-center justify-between mb-6 gap-4">
+      {/* Period tabs + Generate button */}
+      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div
           className="flex rounded-xl p-1 gap-1"
           style={{ backgroundColor: '#1a1d27', border: '1px solid rgba(255,255,255,0.07)' }}
         >
-          {tabs.map(({ key, label }) => (
+          {periodTabs.map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setActiveTab(key)}
+              onClick={() => setPeriodTab(key)}
               className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
               style={
-                activeTab === key
+                periodTab === key
                   ? { backgroundColor: '#6366f1', color: '#fff' }
                   : { color: '#6b7280' }
               }
@@ -245,35 +173,76 @@ export default function AIReview({ session }) {
           ))}
         </div>
 
-        <GenerateButton reviewType={activeTab} onGenerated={handleGenerated} />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+            style={{ backgroundColor: '#6366f1', color: '#fff' }}
+          >
+            {generating ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <SparklesIcon className="w-4 h-4" />
+            )}
+            {generating ? 'Generating…' : 'Generate Review'}
+          </button>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+        </div>
       </div>
 
-      {/* Reviews list */}
-      {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : current.length === 0 ? (
-        <div
-          className="text-center py-16 rounded-2xl"
-          style={{
-            backgroundColor: '#1a1d27',
-            border: '1px solid rgba(255,255,255,0.07)',
-          }}
-        >
-          <SparklesIcon className="w-10 h-10 text-indigo-400/40 mx-auto mb-3" />
-          <p className="text-gray-400 font-medium">No {activeTab} reviews yet</p>
-          <p className="text-gray-600 text-sm mt-1">
-            Click "Generate Review" to create your first one.
-          </p>
+      {/* Content */}
+      {generating ? (
+        <SkeletonGrid />
+      ) : advisorData ? (
+        <div>
+          {/* Advisor tab row */}
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-5 no-scrollbar">
+            {ADVISOR_LIST.map(({ key, emoji, name }) => (
+              <button
+                key={key}
+                onClick={() => setActiveAdvisor(key)}
+                className="flex-shrink-0 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+                style={
+                  activeAdvisor === key
+                    ? { backgroundColor: '#6366f1', color: '#fff' }
+                    : { backgroundColor: '#1e2130', color: '#6b7280', border: '1px solid rgba(255,255,255,0.07)' }
+                }
+              >
+                {emoji} {name.replace('The ', '')}
+              </button>
+            ))}
+          </div>
+
+          {/* Active advisor content */}
+          {selected && (
+            <div
+              key={activeAdvisor}
+              className="rounded-2xl p-6 advisor-panel"
+              style={{ backgroundColor: '#1e2130', border: '1px solid rgba(255,255,255,0.07)' }}
+            >
+              <h2 className="text-base font-semibold text-gray-100 mb-4">
+                {selected.emoji} {selected.name}
+              </h2>
+              <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                {selected.content}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {current.map((review) => (
-            <ReviewCard key={review.id} review={review} />
-          ))}
-        </div>
+        <EmptyStateGrid />
       )}
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .advisor-panel { animation: advisorFadeIn 0.18s ease; }
+        @keyframes advisorFadeIn {
+          from { opacity: 0; transform: translateY(5px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }
