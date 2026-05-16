@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-sonnet-4-5'
+const MODEL = 'claude-opus-4-7'
 
 const ADVISORS = {
   psychologist: {
@@ -347,12 +347,17 @@ Deno.serve(async (req) => {
         }
 
         // ── Save review ───────────────────────────────────────
+        const advisorResponsesJson: Record<string, string> = Object.fromEntries(
+          Object.entries(advisors).map(([key, val]) => [key, val.content])
+        )
+
         await supabaseAdmin.from('ai_reviews').insert({
           user_id: userId,
           review_type,
           period_start: periodStart,
           period_end:   periodEnd,
           content: JSON.stringify(advisorPayload),
+          advisor_responses: advisorResponsesJson,
         })
 
         results.push({ userId, advisors: advisorPayload })
